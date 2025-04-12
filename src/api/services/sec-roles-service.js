@@ -1,6 +1,7 @@
 const RoleSchema = require('../models/mongodb/ztroles');
 const ValueSchema = require('../models/mongodb/ztvalues');
 const RolesInfoSchema = require('../models/mongodb/getRolesModel');
+const RolesInfoUsers = require('../models/mongodb/getRolesUsersModel');
 
 async function RolesCRUD(req) {
   try {
@@ -14,7 +15,7 @@ async function RolesCRUD(req) {
 
 
     } else if (procedure === 'get' && type === 'users') {
-      result = await RolesInfoSchema.find().lean();
+      result = await RolesInfoUsers.find().lean();
 
 
     } else if (procedure === 'post') {
@@ -37,7 +38,7 @@ async function RolesCRUD(req) {
 
         throw new Error(`Los siguientes PROCESSID no existen: ${faltantes.join(', ')}`);
       }
-      
+
       const nuevoRolito = await RoleSchema.create(nuevoRol); 
       result = nuevoRolito.toObject(); 
 
