@@ -10,19 +10,29 @@ service SecurityRoute @(path: '/api/sec') {
     @Core.Description: 'CRUD de Roles'
     @path            : 'rolesCRUD'
     function rolesCRUD() returns array of roles;
+    
+    // GET ALL ROLES 
+    // http://localhost:4004/api/secc/rolesCRUD?procedure=get&type=all 
+
+    // GET ALL ROLES WITH USERS
+    // http://localhost:4004/api/sec/rolesCRUD?procedure=get&type=users
+
+    // POST ROLE
+    // http://localhost:4004/api/sec/rolesCRUD?procedure=post
+
+     // DELETE LOGIC 
+    // http://localhost:4004/api/sec/rolesCRUD?procedure=delete&type=logic&roleid=IdSecurityPrUEBA3
+
+    // DELETE LOGIC 
+    // http://localhost:4004/api/sec/rolesCRUD?procedure=delete&type=hard&roleid=IdSecurityPrUEBA3
+
+    // ADELETE LOGIC 
+    // http://localhost:4004/api/sec/rolesCRUD?procedure=put&roleid=IdSecurityPrUEBA3
+
 
     @Core.Description: 'CRUD de values'
     @path            : 'valuesCRUD'
     function valuesCRUD() returns array of values;
-
-    // API GET ALL ROLES 
-    // http://localhost:4004/api/secc/rolesCRUD?procedure=get&type=all 
-
-    // API GET ALL ROLES WITH USERS
-    // http://localhost:4004/api/sec/rolesCRUD?procedure=get&type=users
-
-    // API POST ROLE
-    // http://localhost:4004/api/sec/rolesCRUD?procedure=post
 
 
 
