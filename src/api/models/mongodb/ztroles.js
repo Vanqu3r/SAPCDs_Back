@@ -29,5 +29,27 @@ const RoleSchema = new Schema({
   versionKey: false 
 });
 
-// Indica explícitamente el nombre de la colección "ZTEROLES"
+// Middleware automático antes de guardar
+RoleSchema.pre('save', function (next) {
+  const now = new Date();
+
+  if (!this.DETAIL_ROW) this.DETAIL_ROW = {};
+  this.DETAIL_ROW.ACTIVED = true;
+  this.DETAIL_ROW.DELETED = false;
+
+  if (!this.DETAIL_ROW.DETAIL_ROW_REG || this.DETAIL_ROW.DETAIL_ROW_REG.length === 0) {
+    this.DETAIL_ROW.DETAIL_ROW_REG = [
+      {
+        CURRENT: true,
+        REGDATE: now,
+        REGTIME: now,
+        REGUSER: this._reguser || 'SYSTEM'
+      }
+    ];
+  }
+
+  next();
+});
+
+
 module.exports = mongoose.model('ZTEROLES', RoleSchema, 'ZTEROLES');
