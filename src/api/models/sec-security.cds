@@ -45,3 +45,27 @@ entity labels {
         }
     };
 };
+
+entity values {
+        COMPANYID  : String;
+        CEDIID     : String;
+        LABELID    : String;
+        VALUEPAID  : String;
+        VALUEID    : String;
+        VALUE      : String;
+        ALIAS      : String;
+        SEQUENCE   : Integer;
+        IMAGE      : String;
+        DESCRIPTION: String;
+        DETAIL_ROW : {
+            ACTIVED : Boolean;
+            DELETED : Boolean;
+            DETAIL_ROW_REG:  array of   {
+                    CURRENT : Boolean;
+                    REGDATE : DateTime;
+                    REGTIME : DateTime;
+                    REGUSER : String;
+            }
+        };
+
+};
