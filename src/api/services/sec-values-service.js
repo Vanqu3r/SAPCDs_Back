@@ -2,8 +2,8 @@ const ValueSchema = require('../models/mongodb/ztvalues');
 
 async function ValuesCRUD(req) {
   try {
-    const { procedure, labelID, valueID} = req.req.query;
-    console.log('PROCEDURE:', procedure,'LABELID:',labelID, 'VALUEPAID:', valueID);
+    const { procedure, labelID, ValueID} = req.req.query;
+    console.log('PROCEDURE:', procedure,'LABELID:',labelID, 'VALUEID:', ValueID);
 
     let result;
 
@@ -44,8 +44,20 @@ async function ValuesCRUD(req) {
 
     }
 
-    if (procedure === 'delete' ) {
-      
+    if (procedure === 'delete' && labelID!==null && ValueID!==null) {
+      result=deleteAndActivedLogic(procedure,labelID,ValueID);
+    }
+    
+    if (procedure === 'actived' && labelID!==null && ValueID!==null) {
+      result=deleteAndActivedLogic(procedure,labelID,ValueID);
+    }
+
+    if (procedure === 'deletePermanent' && labelID!==null && ValueID!==null) {
+      const deletePermanent = await ValueSchema.findOneAndDelete({
+        LABELID: labelID,
+        VALUEID: ValueID
+      });
+      result = deletePermanent.toObject();
     }
 
     return result;
@@ -77,7 +89,7 @@ async function putValidation(type,Value) {
               LABELID: type
             }).lean();
           if (validacion===null){
-            throw new Error(`El siguiente IdApplications no existe: ${Value.VALUEPAID}`);
+            throw new Error(`El siguiente valor de ${type} no existe: ${Value.VALUEPAID}`);
           }else{
             return result = Update(Value);
           }
@@ -94,4 +106,26 @@ async function Update(updateValue){
   );
     return result = updateValidValue.toObject(); 
 }
+
+async function deleteAndActivedLogic(procedure,labelID,ValueID){
+  let actived = true;
+  let deleted = false;
+  if (procedure === 'delete') {
+    actived = false;
+    deleted = true;
+  }
+  const deleteLogic = await ValueSchema.findOneAndUpdate(
+    {
+      LABELID: labelID,
+      VALUEID: ValueID
+    },
+    {
+      'DETAIL_ROW.ACTIVED': actived,
+      'DETAIL_ROW.DELETED': deleted
+    },
+    { new: true }
+  );
+  return result = deleteLogic.toObject();
+}
+
 module.exports = { ValuesCRUD };
