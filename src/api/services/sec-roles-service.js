@@ -40,12 +40,18 @@ async function RolesCRUD(req) {
 
       // GET CON USERS ----------------------------------
     } else if (procedure === 'get' && type === 'users') {
-      result = await RolesInfoUsers.find().lean();
+
+      const filter = {};
+      if (roleid) {
+        filter.ROLEID = roleid;
+      }
+
+      result = await RolesInfoUsers.find(filter).lean();
 
 
       // POST -------------------------------------
     } else if (procedure === 'post') {
-      
+
       const nuevoRol = req.req.body;
       await validarProcessIds(nuevoRol.PRIVILEGES);
 
@@ -65,7 +71,7 @@ async function RolesCRUD(req) {
         updated = await RoleSchema.findOneAndUpdate(
           { ROLEID: roleid },
           {
-            $set: { 'DETAIL_ROW.ACTIVED': false,  'DETAIL_ROW.DELETED': true }
+            $set: { 'DETAIL_ROW.ACTIVED': false, 'DETAIL_ROW.DELETED': true }
           },
           { new: true }
         );
