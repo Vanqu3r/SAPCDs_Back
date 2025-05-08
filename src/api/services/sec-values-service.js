@@ -3,7 +3,7 @@ const ValueSchema = require('../models/mongodb/ztvalues');
 async function ValuesCRUD(req) {
   try {
     const { procedure, labelID, ValueID} = req.req.query;
-    console.log('PROCEDURE:', procedure,'LABELID:',labelID, 'VALUEID:', ValueID);
+    console.log('PROCEDURE:', procedure,'LABELIDaaa:',labelID, 'VALUEID:', ValueID);
 
     let result;
 
@@ -44,11 +44,7 @@ async function ValuesCRUD(req) {
 
     }
 
-    if (procedure === 'delete' && labelID!==null && ValueID!==null) {
-      result=deleteAndActivedLogic(procedure,labelID,ValueID);
-    }
-    
-    if (procedure === 'actived' && labelID!==null && ValueID!==null) {
+    if ((procedure === 'delete' || procedure === 'actived') && labelID!==null && ValueID!==null) {
       result=deleteAndActivedLogic(procedure,labelID,ValueID);
     }
 
@@ -58,6 +54,10 @@ async function ValuesCRUD(req) {
         VALUEID: ValueID
       });
       result = deletePermanent.toObject();
+    }
+
+    if (procedure === 'get' && labelID !== null) {
+      result = await ValueSchema.find({LABELID: labelID}).lean();
     }
 
     return result;
