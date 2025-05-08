@@ -3,7 +3,7 @@ const ValueSchema = require('../models/mongodb/ztvalues');
 async function ValuesCRUD(req) {
   try {
     const { procedure, labelID, ValueID} = req.req.query;
-    console.log('PROCEDURE:', procedure,'LABELIDaaa:',labelID, 'VALUEID:', ValueID);
+    console.log('PROCEDURE:', procedure,'LABELID:',labelID, 'VALUEID:', ValueID);
 
     let result;
 
