@@ -8,7 +8,8 @@ async function ValuesCRUD(req) {
     let result;
 
     if (procedure === 'post') {
-        const newValue = req.req.body;
+        console.log('POST procedure');
+        const newValue = req.req.query;
         const labelprocess = newValue.LABELID;
         if (labelprocess==="IdViews") {
             result = postValidation("IdApplications",newValue);
