@@ -24,7 +24,7 @@ async function ValuesCRUD(req) {
     }
     
     if (procedure === 'put') {    
-      const updateValue = req.req.body;
+      const updateValue = req.req.query;
       let ValueOriginal = await ValueSchema.findOne({
         VALUEID: updateValue.VALUEID,
         LABELID: updateValue.LABELID
