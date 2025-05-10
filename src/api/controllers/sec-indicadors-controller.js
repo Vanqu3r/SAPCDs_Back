@@ -5,7 +5,7 @@ const {
 
 class IndicatorsClass extends cds.ApplicationService {
   async init() {
-    this.on('getall', async (req) => {
+    this.on('indicators', async (req) => {
       return getIndicadors(req);
     });
 

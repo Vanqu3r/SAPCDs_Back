@@ -1,15 +1,13 @@
 using {inv as myinv} from '../models/indicadors-inversions.cds';
 @impl: 'src/api/controllers/sec-indicadors-controller.js'
 
-service IndicatorsRoute @(path:'/api/inv/indicators') {
+service IndicatorsRoute @(path:'/api/inv') {
 
-  entity indicators as projection on myinv.indicators;
+  entity indicatores as projection on myinv.indicatores;
 
   @Core.Description: 'get-all-indicators'
-  @path: 'getall'
-  function getall()
-    returns array of indicators;
 
-
+  function indicators()
+    returns array of indicatores;
 
 }

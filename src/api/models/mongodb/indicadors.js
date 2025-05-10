@@ -15,9 +15,10 @@ const DataPointSchema = new mongoose.Schema({
 // Documento principal
 const IndicadorSchema = new mongoose.Schema({
   symbol: { type: String, required: true },
-  name: { type: String, required: true }, // por ejemplo: "Momentum"
-  assetType: { type: String, required: true }, // por ejemplo: "stock"
-  interval: { type: String, required: true }, // por ejemplo: "daily"
+  name: { type: String, required: true }, // 
+  strategy: { type: String, required: true }, 
+  assetType: { type: String, required: true }, 
+  interval: { type: String, required: true }, 
   timezone: { type: String, required: true },
   data: { type: [DataPointSchema], required: true }
 }, { timestamps: true });
