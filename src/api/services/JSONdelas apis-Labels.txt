@@ -1,0 +1,81 @@
+Estructura de los jsons de labels
+con ejemplos 
+
+SI SE PRUEBAN EN POSTMAN, NO OLVIDAR EJECUTAR CON POST 
+
+##PUT:
+
+{
+  "values": {
+    "COMPANYID": "0",
+    "CEDIID": "0",
+    "LABELID": "IDPRUEBA",
+    "LABEL": "PRUEBA",
+    "INDEX": "PRUEBA",
+    "COLLECTION": "PRUEBA",
+    "SECTION": "seguridad",
+    "SEQUENCE": 10,
+    "IMAGE": "https://PRUEBA.png",
+    "DESCRIPTION": "Catalogo de Aplicaciones",
+    "DETAIL_ROW": {
+      "ACTIVED": true,
+      "DELETED": false,
+      "DETAIL_ROW_REG": [
+        {
+          "CURRENT": false,
+          "REGDATE": "2025-02-14T00:00:00.628Z",
+          "REGTIME": "2025-02-14T00:00:00.628Z",
+          "REGUSER": "FIBARRAC"
+        },
+        {
+          "CURRENT": true,
+          "REGDATE": "2025-02-18T00:00:00.628Z",
+          "REGTIME": "2025-02-18T00:00:00.628Z",
+          "REGUSER": "FIBARRAC"
+        }
+      ]
+    }
+  }
+}
+
+DELETE:
+
+{
+    "_id": "681fbed05137ddec4e3bb3bd"
+}
+
+PUT:
+
+{
+  "values": {
+    "_id":"682006c834bddbc6edbe12a0",
+    "COMPANYID": "0",
+    "CEDIID": "0",
+    "LABELID": "IDPRUEBA2",
+    "LABEL": "PRUEBA",
+    "INDEX": "PRUEBA",
+    "COLLECTION": "PRUEBA",
+    "SECTION": "seguridad",
+    "SEQUENCE": 10,
+    "IMAGE": "https://PRUEBA.png",
+    "DESCRIPTION": "Catalogo de Aplicaciones",
+    "DETAIL_ROW": {
+      "ACTIVED": true,
+      "DELETED": false,
+      "DETAIL_ROW_REG": [
+        {
+          "CURRENT": false,
+          "REGDATE": "2025-02-14T00:00:00.628Z",
+          "REGTIME": "2025-02-14T00:00:00.628Z",
+          "REGUSER": "FIBARRAC"
+        },
+        {
+          "CURRENT": true,
+          "REGDATE": "2025-02-18T00:00:00.628Z",
+          "REGTIME": "2025-02-18T00:00:00.628Z",
+          "REGUSER": "FIBARRAC"
+        }
+      ]
+    }
+  }
+}
