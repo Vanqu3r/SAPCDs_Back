@@ -75,7 +75,7 @@ async function postValidation(type,newValue) {
                 LABELID: type
               }).lean();
             if (validacion===null){
-                throw new Error(`El siguiente ${type}  no existe: ${processIds}`);
+                throw new Error(`El siguiente ${type}  no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
             }else{
                 const validValue = await ValueSchema.create(newValue); 
                 result = validValue.toObject();
@@ -90,7 +90,7 @@ async function putValidation(type,Value) {
               LABELID: type
             }).lean();
           if (validacion===null){
-            throw new Error(`El siguiente valor de ${type} no existe: ${Value.VALUEPAID}`);
+            throw new Error(`El siguiente valor de ${type} no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
           }else{
             return result = Update(Value);
           }
