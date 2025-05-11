@@ -1,14 +1,14 @@
 const axios = require("axios");
 const { calculateIndicators } = require("../utils/indicadors");
 const Indicador = require("../models/mongodb/indicadors");
-const API_KEY = "7NONLRJ6ARKI0BA4";
+const API_KEY = "7NONLRJ6ARKI0BA4";//"UIDZTARCBET62W2J";
 
 // Función para obtener el nombre de la compañía usando el SYMBOL_SEARCH
 async function getCompanyName(symbol) {
   try {
     const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${symbol}&apikey=${API_KEY}`;
     const response = await axios.get(url);
-    
+    console.log(response.data);
     const company = response.data.bestMatches[0]; // Obtener el primer resultado
     if (company) {
       return company["2. name"];  // Nombre de la compañía
@@ -16,6 +16,7 @@ async function getCompanyName(symbol) {
       throw new Error("Compañía no encontrada");
     }
   } catch (error) {
+    console.log(error);
     console.error("Error al obtener el nombre de la compañía:", error.message);
     return null;
   }
@@ -86,7 +87,7 @@ async function getIndicadors(req) {
       return result;
     }
   } catch (error) {
-    console.error("Error en getIndicadors:", error.message);
+    console.error("Error en getIndicadors:", error);
     return { error: true, message: error.message };
   }
 }
