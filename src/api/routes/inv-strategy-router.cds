@@ -2,7 +2,7 @@ using { inv } from '../models/inv-inversions';
 
 @impl: 'src/api/controllers/inv-strategy-controller.js'
 
-service StrategyRoute @(path: '/api/sec') {
+service StrategyRoute @(path: '/api/inv') {
     entity st as projection on inv.strategy;
 
     // get all users
