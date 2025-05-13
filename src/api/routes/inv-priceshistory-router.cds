@@ -1,4 +1,4 @@
-using {inv as myinv} from '../models/inv-inversions.cds';
+using {inv as myinv} from '../models/inv-inversions';
  @impl: 'src/api/controllers/inv-inversions-controller.js' 
 
 service PricesHistoryRoute @(path:'/api/inv'){
@@ -6,7 +6,7 @@ service PricesHistoryRoute @(path:'/api/inv'){
     //entity priceshistory as projection on myinv.priceshistory;
     //entity strategies as projection on myinv.strategies;   
     entity priceshistory as projection on myinv.priceshistory;
-    entity strategies as projection on myinv.strategies;
+    entity strategies as projection on myinv.strategy;
 
     // get all prices history
 
@@ -25,6 +25,8 @@ service PricesHistoryRoute @(path:'/api/inv'){
     @path: 'deleteone'
         action deleteone() 
         returns array of priceshistory;
+
+
 
     //get some prices history
     /*

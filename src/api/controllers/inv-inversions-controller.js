@@ -1,5 +1,6 @@
 const cds = require('@sap/cds');
 const {GetAllPricesHistory,AddOnePricesHistory,DeleteOnePricesHistory} = require('../services/inv-priceshistory-service');
+
 class InversionsClass extends cds.ApplicationService {
     async init(){
         this.on('getall',async (req)=>{
@@ -11,6 +12,7 @@ class InversionsClass extends cds.ApplicationService {
         this.on('deleteone',async (req)=>{
             return DeleteOnePricesHistory(req);
         });
+      
         //more functions
         return await super.init();
     };
