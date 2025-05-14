@@ -11,7 +11,8 @@ service SecurityRoute @(path: '/api/sec') {
 
     @Core.Description: 'CRUD de Roles'
     @path            : 'rolesCRUD'
-    function rolesCRUD()  returns array of roles;
+    action rolesCRUD()
+    returns array of roles;
 
     // GET ALL ROLES
     // http://localhost:4004/api/sec/rolesCRUD?procedure=get&type=all
