@@ -40,7 +40,12 @@ async function RolesCRUD(req) {
 
       // GET CON USERS ----------------------------------
     } else if (procedure === 'get' && type === 'users') {
-      result = await RolesInfoUsers.find().lean();
+      const filter = {};
+      if (roleid) {
+        filter.ROLEID = roleid;
+      }
+
+      result = await RolesInfoUsers.find(filter).lean()
 
 
       // POST -------------------------------------
