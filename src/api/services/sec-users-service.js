@@ -25,32 +25,6 @@ const validarRol = async (roles) => {
         throw error;
     }
 }
-const RoleSchema = require('../models/mongodb/ztroles');
-const usersComplete = require('../models/mongodb/usersComplete');
-
-const validarRol = async (roles) => {
-    try {
-        console.log("Entra a la funcion de validacion");
-        if(roles.length === 0){
-            return;
-        }
-        let rolesId = [];
-        roles.forEach( r => {
-            rolesId.push(r.ROLEID);
-        });
-        let validation = await RoleSchema.find( {ROLEID:{$in:rolesId}}).lean();
-
-        if(validation.length !== roles.length ){
-            console.log('Alguno de los roles ingresados no existe');
-            return validation.toObject();
-        }else{
-            console.log("todos los roles existen");
-            return roles;
-        }
-    } catch (error) {
-        throw error;
-    }
-}
 
 async function UsersCRUD(req) {
     try {
