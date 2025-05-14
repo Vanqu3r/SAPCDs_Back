@@ -26,7 +26,7 @@ async function getIndicadors(req) {
   const { procedure, type, roleid } = req.req.query;
   try {
     if (procedure === "POST") {
-      const { symbol, interval = "daily", indicators = "" } = req.req.query;
+      const { symbol, interval = "daily", indicators} = req.req.query;
 
       if (!symbol) throw new Error("Falta el parámetro 'symbol'");
 
