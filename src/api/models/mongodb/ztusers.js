@@ -16,7 +16,6 @@ const DetailRowSchema = new mongoose.Schema({
 const UsersSchema = new mongoose.Schema({
         USERID   : {type:String,required:true},
         USERNAME : {type:String},
-        PASSWORD : {type:String},
         ALIAS : {type:String},
         FIRSTNAME : {type:String},
         LASTNAME : {type:String},

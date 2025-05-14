@@ -72,7 +72,7 @@ service SecurityRoute @(path: '/api/sec') {
 
     @Core.Description: 'crud-for-users'
     @path: 'usersCRUD'
-        function usersCRUD()
+        action usersCRUD()
         returns array of users;
 
 
