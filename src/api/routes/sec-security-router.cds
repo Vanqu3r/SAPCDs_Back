@@ -7,13 +7,14 @@ service SecurityRoute @(path: '/api/sec') {
     entity labels   as projection on mysec.labels;
     entity values   as projection on mysec.values;
     entity catalogs as projection on mysec.catalogs;
+    entity users as projection on mysec.users;
 
     @Core.Description: 'CRUD de Roles'
     @path            : 'rolesCRUD'
     function rolesCRUD()  returns array of roles;
 
     // GET ALL ROLES
-    // http://localhost:4004/api/secc/rolesCRUD?procedure=get&type=all
+    // http://localhost:4004/api/sec/rolesCRUD?procedure=get&type=all
 
     // GET ALL ROLES WITH USERS
     // http://localhost:4004/api/sec/rolesCRUD?procedure=get&type=users
@@ -68,6 +69,11 @@ service SecurityRoute @(path: '/api/sec') {
     @Core.Description: 'Read de catalogs'
     @path            : 'catalogsR'
     function catalogsR()  returns array of catalogs;
+
+    @Core.Description: 'crud-for-users'
+    @path: 'usersCRUD'
+        function usersCRUD()
+        returns array of users;
 
 
   
