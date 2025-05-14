@@ -1,8 +1,12 @@
 const cds = require('@sap/cds');
-const { GetAllSimulations, UpdateSimulationName, DeleteSimulation} = require('../services/inv-simulations-service');
+const { GetAllSimulations, UpdateSimulationName, DeleteSimulation, Simulate} = require('../services/inv-simulations-service');
 
 class SimulationsController extends cds.ApplicationService {
     async init() {
+
+        this.on('simulate', async (req) => {
+            return Simulate(req);
+        });
 
         this.on('getallsimulations', async (req) => {
             return GetAllSimulations(req);

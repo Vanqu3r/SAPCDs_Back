@@ -1,7 +1,7 @@
 const axios = require("axios");
 const { calculateIndicators } = require("../utils/indicadors");
 const Indicador = require("../models/mongodb/indicadors");
-const API_KEY = "7NONLRJ6ARKI0BA4";//"UIDZTARCBET62W2J";
+const API_KEY = "BO56AF48GLBDHFVR"//"7NONLRJ6ARKI0BA4";//"UIDZTARCBET62W2J";
 
 // Función para obtener el nombre de la compañía usando el SYMBOL_SEARCH
 async function getCompanyName(symbol) {

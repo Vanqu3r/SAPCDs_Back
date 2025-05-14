@@ -7,6 +7,9 @@ service SimulationsRoute @(path:'/api/sim') {
 
     function getallsimulations()
         returns array of simulations;
+    
+    action simulate(simulation: simulations)
+        returns array of simulations;
 
     action updatesimulationname(simulation: simulations)
         returns array of simulations;
