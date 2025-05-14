@@ -49,7 +49,7 @@ async function RolesCRUD(req) {
 
 
       // POST -------------------------------------
-    } else if (procedure === 'post') {
+    } else if (req.req.query.procedure === 'post') {
       
       const nuevoRol = req.req.body;
       await validarProcessIds(nuevoRol.PRIVILEGES);
@@ -57,6 +57,7 @@ async function RolesCRUD(req) {
       const nuevoRolito = await RoleSchema.create(nuevoRol);
       result = nuevoRolito.toObject();
 
+        
 
 
       // DELETE ----------------------------
@@ -128,13 +129,14 @@ async function RolesCRUD(req) {
     }
 
 
-
-    return result;
+      return JSON.parse(JSON.stringify(result));
 
   } catch (error) {
     console.error('Error en RolesCRUD:', error);
     return { error: true, message: error.message };
   }
 }
+
+
 
 module.exports = { RolesCRUD };
