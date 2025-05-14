@@ -1,6 +1,7 @@
 const cds = require('@sap/cds');
 const { RolesCRUD } = require('../services/sec-roles-service');
 const { ValuesCRUD } = require('../services/sec-values-service');
+const {UsersCRUD} = require('../services/sec-users-service');
 const { CatalogsR } = require('../services/sec-catalogs-service');
 const { GetAllLabels, PostLabel, DeleteLabel, PutLabel } = require('../services/sec-labels-service');
 const { UsersCRUD } = require('../services/sec-users-service');

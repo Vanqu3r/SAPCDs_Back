@@ -11,9 +11,12 @@
   "dependencies": {
     "@dotenvx/dotenvx": "^1.39.0",
     "@sap/cds": "^8",
+    "axios": "^1.9.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "mongoose": "^8.13.0"
+    "mongoose": "^8.13.0",
+    "nodemon": "^3.1.10",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@cap-js/cds-types": "^0.9.0",

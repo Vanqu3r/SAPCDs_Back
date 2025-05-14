@@ -2,12 +2,13 @@ using {sec as mysec} from '../models/sec-security';
 
 @impl: 'src/api/controllers/sec-security-controller.js'
 
+
 service SecurityRoute @(path: '/api/sec') {
     entity roles    as projection on mysec.roles;
     entity labels   as projection on mysec.labels;
     entity values   as projection on mysec.values;
-    entity catalogs as projection on mysec.catalogs;
     entity users as projection on mysec.users;
+    entity catalogs as projection on mysec.catalogs;
 
     @Core.Description: 'CRUD de Roles'
     @path            : 'rolesCRUD'
@@ -75,9 +76,4 @@ service SecurityRoute @(path: '/api/sec') {
     @path: 'usersCRUD'
         action usersCRUD()
         returns array of users;
-
-
-  
-
-
 }
