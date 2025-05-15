@@ -105,6 +105,7 @@ function calculateMACD(prices){
 function calculateADX(prices,period=14) {
   const dxArray = [];
   // Empezar desde el índice 1 para poder usar el dato anterior (ayer)
+  console.log("Tamaño: ", prices.length);
   for (let i = 1; i < prices.length; i++) {
     const highToday = parseFloat(prices[i].high);
     const lowToday = parseFloat(prices[i].low);
@@ -128,13 +129,34 @@ function calculateADX(prices,period=14) {
     const minusDI = (minusDM / tr) * 100;
 
     // Calcular DX
-    const dx = (Math.abs(plusDI - minusDI) / (plusDI + minusDI)) * 100;
+    const denominator = plusDI + minusDI;
+    const dx = denominator === 0 ? 0 : (Math.abs(plusDI - minusDI) / denominator) * 100;
     dxArray.push(dx);
   }
 
   // Suavizar los valores de DX con una EMA para obtener el ADX
   const adx = calculateEMA(dxArray, period);
   return adx;
+}
+
+//INDICADOR MOMENTUM
+function calculateMOM(prices, period = 14) {
+  const momArray = prices.map((data, index) => {
+    if (index < period) {
+      return  null; // No hay suficiente data
+    }
+
+    let priceNow = parseFloat(data.close);
+    let pricePast = parseFloat(prices[index - period].close);
+
+    let momentum = priceNow - pricePast;
+    //let momentumPercentage = (priceNow / pricePast) * 100;
+
+    return momentum;
+    
+  });
+
+  return momArray;
 }
 
 function calculateIndicators(prices, indicators) {
@@ -144,6 +166,7 @@ function calculateIndicators(prices, indicators) {
   const rsi = indicators.includes("RSI") ? calculateRSI(prices, 14) : [];
   const macd = indicators.includes("MACD") ? calculateMACD(prices) : [];
   const adx = indicators.includes("ADX") ? calculateADX(prices,14) : [];
+  const mom = indicators.includes("MOM") ? calculateMOM(prices) : [];
 
   return prices.map((item, i) => ({
     date: item.date,
@@ -154,7 +177,8 @@ function calculateIndicators(prices, indicators) {
     ...(long.length ? { LONG: long[i] } : {}),
     ...(rsi.length ? { RSI: rsi[i] } : {}),
     ...(macd.length ? {MACD: macd[i]}:{}),
-    ...(adx.length ? {ADX: adx[i]} : {})
+    ...(adx.length ? {ADX: adx[i]} : {}),
+    ...(mom.length ? {MOM: mom[i]} : {})
   }));
 }
   

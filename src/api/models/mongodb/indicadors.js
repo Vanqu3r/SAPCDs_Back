@@ -9,7 +9,17 @@ const DataPointSchema = new mongoose.Schema({
   volume: { type: Number, required: true },
   SHORT: { type: Number, default: null },
   LONG: { type: Number, default: null },
-  RSI: { type: Number, default: null }
+  RSI: { type: Number, default: null },
+  MACD: {
+    type: new mongoose.Schema({
+      macd: { type: Number, default: null },
+      signal: { type: Number, default: null },
+      histogram: { type: Number, default: null }
+    }, { _id: false }),
+    default: null
+  },
+  ADX: { type: Number, default: null },
+  MOM: { type: Number, default: null }
 }, { _id: false }); // sin _id en los subdocumentos
 
 // Documento principal
