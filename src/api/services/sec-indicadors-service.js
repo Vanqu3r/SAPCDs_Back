@@ -42,7 +42,7 @@ async function getIndicadors(req) {
       if(!companyReg){
         //Si no esta en los indicadores ya registrados, se llama a la API y se hacen todos los calculos.
         // Llamar Alpha Vantage para obtener los datos de la serie temporal
-        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_${interval.toUpperCase()}&symbol=${symbol}&apikey=${API_KEY}&outputsize=compact`;
+        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_${interval.toUpperCase()}&symbol=${symbol}&apikey=${API_KEY}`;
         const response = await axios.get(url);
 
         const rawData = response.data["Time Series (Daily)"];

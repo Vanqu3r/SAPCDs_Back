@@ -106,7 +106,7 @@ async function Simulate(req) {
             reasoning: reasonsSell
           });
           positions = positions - amountToBuy;//Se decrementan las posiciones sobre esa empresa
-        }else{
+        }else if(positions > 0){
           earnd = point.close * positions;
           opAmount = opAmount + earnd;
           signals.push({
