@@ -29,13 +29,14 @@ entity userrowreg {
 // Entidad principal: Simulación
 entity Simulations {
   key idSimulation     : String;
-  idUser               : String;
+  userId               : String;
   idStrategy           : String;
   simulationName       : String;
   symbol               : String;
   startDate            : DateTime;
   endDate              : DateTime;
   amount               : Decimal9_2;
+  amountToBuy          : Decimal9_2;
   specs                : String;
 
   signals              : Composition of many Signal;
