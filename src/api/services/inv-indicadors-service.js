@@ -8,7 +8,7 @@ async function getCompanyName(symbol) {
   try {
     const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${symbol}&apikey=${API_KEY}`;
     const response = await axios.get(url);
-    console.log(response.data);
+    //console.log(response.data);
     const company = response.data.bestMatches[0]; // Obtener el primer resultado
     if (company) {
       return company["2. name"];  // Nombre de la compañía
@@ -23,7 +23,7 @@ async function getCompanyName(symbol) {
 }
 
 async function getIndicadors(req) {
-  const { procedure, type, roleid } = req.req.query;
+  const { procedure } = req.req.query;
   try {
     if (procedure === "POST") {
       const { symbol, interval = "daily", indicators} = req.req.query;
@@ -34,53 +34,75 @@ async function getIndicadors(req) {
       const name = await getCompanyName(symbol); // Aquí obtenemos el nombre de la compañía
       if (!name) throw new Error("No se pudo obtener el nombre de la compañía");
 
-      // Llamar Alpha Vantage para obtener los datos de la serie temporal
-      const url = `https://www.alphavantage.co/query?function=TIME_SERIES_${interval.toUpperCase()}&symbol=${symbol}&apikey=${API_KEY}&outputsize=compact`;
-      const response = await axios.get(url);
+      const companyReg = await Indicador.findOne({
+        symbol:symbol,
+        name:name
+      }).lean();
 
-      const rawData = response.data["Time Series (Daily)"];
-      if (!rawData) throw new Error("No se pudo obtener datos de Alpha Vantage");
+      if(!companyReg){
+        //Si no esta en los indicadores ya registrados, se llama a la API y se hacen todos los calculos.
+        // Llamar Alpha Vantage para obtener los datos de la serie temporal
+        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_${interval.toUpperCase()}&symbol=${symbol}&apikey=${API_KEY}`;
+        const response = await axios.get(url);
 
-      const parsedData = Object.entries(rawData)
-        .map(([date, values]) => ({
-          date: new Date(date),
-          close: parseFloat(values["4. close"]),
-          high: parseFloat(values["2. high"]),
-          low: parseFloat(values["3. low"]),
-          volume: parseFloat(values["5. volume"]),
-        }))
-        .reverse(); // De más antiguo a más nuevo
+        const rawData = response.data["Time Series (Daily)"];
+        if (!rawData) throw new Error("No se pudo obtener datos de Alpha Vantage");
 
-      // Calcular indicadores
-      const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
-      const dataConIndicadores = calculateIndicators(parsedData, indicArray);
+        const parsedData = Object.entries(rawData)
+          .map(([date, values]) => ({
+            date: new Date(date),
+            close: parseFloat(values["4. close"]),
+            high: parseFloat(values["2. high"]),
+            low: parseFloat(values["3. low"]),
+            volume: parseFloat(values["5. volume"]),
+          }))
+          .reverse(); // De más antiguo a más nuevo
 
-      // Generar respuesta tipo Mongo
-      const result = {
-        _id: 'ObjectId("...")',
-        symbol,
-        name, // Aquí asignamos el nombre de la compañía
-        strategy: "Momentum",
-        assetType: "stock",
-        interval,
-        timezone: "UTC",
-        data: dataConIndicadores,
-      };
+        // Calcular indicadores
+        const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
+        const dataConIndicadores = calculateIndicators(parsedData, indicArray);
 
-      const indicadorDoc = new Indicador({
-        symbol,
-        name, // Aquí asignamos el nombre de la compañía
-        strategy: "Momentum",
-        assetType: "stock",
-        interval,
-        timezone: "UTC",
-        data: dataConIndicadores,
-      });
+        // Generar respuesta tipo Mongo
+        const result = {
+          _id: 'ObjectId("...")',
+          symbol,
+          name, // Aquí asignamos el nombre de la compañía
+          strategy: "Momentum",
+          assetType: "stock",
+          interval,
+          timezone: "UTC",
+          data: dataConIndicadores,
+        };
 
-      // Guardar en MongoDB
-      const saved = await indicadorDoc.save();
+        const indicadorDoc = new Indicador({
+          symbol,
+          name, // Aquí asignamos el nombre de la compañía
+          strategy: "Momentum",
+          assetType: "stock",
+          interval,
+          timezone: "UTC",
+          data: dataConIndicadores,
+        });
 
-      return result;
+        // Guardar en MongoDB const saved = 
+        await indicadorDoc.save();
+
+        return result;
+      }else{
+        const prices = companyReg.data;
+        // Calcular indicadores
+        const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
+        const dataConIndicadores = calculateIndicators(prices, indicArray);
+
+        companyReg.data = dataConIndicadores;
+        //console.log("COMPANY: ",companyReg.data);
+
+        const nuevo = await Indicador.findOneAndUpdate({symbol:symbol,name:name},{$set:companyReg},{new:true});
+
+        return nuevo.toObject();
+      }
+
+      
     } 
     else if (procedure === "GET") {
       const result = await Indicador.find().lean();

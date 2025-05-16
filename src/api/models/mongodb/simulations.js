@@ -24,7 +24,7 @@ const detailRowSchema = new mongoose.Schema({
 
 const SimulationSchema = new mongoose.Schema({
   idSimulation: {type: String, required: true },
-  idUser: { type: String, required: true },
+  userId: { type: String, required: true },
   idStrategy: { type: String, required: true },
   simulationName: { type: String, required: true },
   symbol: { type: String, required: true },
