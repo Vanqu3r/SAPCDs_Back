@@ -56,6 +56,11 @@ service SecurityRoute @(path: '/api/sec') {
     action updateLabel(values:labels)  
     returns array of labels;
 
+    @Core.Description: 'LOGICAL Label'
+    @path            : 'logicalLabel'
+    action logicalLabel()
+    returns array of labels;
+
     // GET ALL CATALOGS
     // http://localhost:4004/api/sec/catalogsR?procedure=get&type=all
 
