@@ -1,5 +1,30 @@
 const UsersSchema = require('../models/mongodb/ztusers');
+const RoleSchema = require('../models/mongodb/ztroles');
+const usersComplete = require('../models/mongodb/usersComplete');
 
+const validarRol = async (roles) => {
+    try {
+        console.log("Entra a la funcion de validacion");
+        if(roles.length === 0){
+            return;
+        }
+        let rolesId = [];
+        roles.forEach( r => {
+            rolesId.push(r.ROLEID);
+        });
+        let validation = await RoleSchema.find( {ROLEID:{$in:rolesId}}).lean();
+
+        if(validation.length !== roles.length ){
+            console.log('Alguno de los roles ingresados no existe');
+            return validation.toObject();
+        }else{
+            console.log("todos los roles existen");
+            return roles;
+        }
+    } catch (error) {
+        throw error;
+    }
+}
 
 async function UsersCRUD(req) {
     try {
@@ -18,6 +43,7 @@ async function UsersCRUD(req) {
                 res = GetOneUser(userid);
                 break;
             case 'post':
+                console.log("Entra al case");
                 res = PostUser(req);
                 break;
             case 'patch':
@@ -44,7 +70,8 @@ async function UsersCRUD(req) {
 
 async function GetAllUsers() {
     try {
-        const allUsers = await UsersSchema.find().lean();
+        //const allUsers = await UsersSchema.find().lean();
+        const allUsers = await usersComplete.find().lean();
 
         return allUsers;
     } catch (error) {
@@ -55,7 +82,8 @@ async function GetAllUsers() {
 async function GetOneUser(userid) {
     try {
         //const userId = req.req.query?.userid;
-        const user = await UsersSchema.findOne({USERID:userid}).lean();
+        //const user = await UsersSchema.findOne({USERID:userid}).lean();
+        const user = await usersComplete.findOne({USERID:userid}).lean();
 
         if(!user){
             return {mensaje:'No se encontró el usuario'};
@@ -71,10 +99,19 @@ async function GetOneUser(userid) {
 async function PostUser(req) {
     try {
         const newUser = req.req.body;
+        console.log("Usuario recibido: ",newUser);
+        console.log("Entra al Metodo del servicio de post");
         if(!newUser){throw new Error('No envió los datos del usuario a agregar');}
-        //Validar los roles
+        //Validar los roles//Validar los roles
+        const rol = await validarRol(newUser.ROLES);
+        console.log("CAMBIOS 1:",newUser);
+        console.log("ROL: ",rol);
+        newUser.ROLES = rol;
+        console.log("CAMBIOS 2:",newUser);
 
-        const createdUser = await UsersSchema.create(newUser);
+        const createdUser = new UsersSchema(newUser);
+
+        await createdUser.save();
 
         return createdUser.toObject();
     } catch (error) {
@@ -85,7 +122,15 @@ async function PostUser(req) {
 async function UpdateUser(req,userid){
     try{
         const cambios = req.req.body;
+        if(!cambios){throw new Error('No envió los datos del usuario a agregar');}
         //VALIDAR ROLES
+        if(!cambios){throw new Error('No envió los datos del usuario a agregar');}
+        //VALIDAR ROLES
+        const rol = await validarRol(cambios.ROLES);
+        console.log("CAMBIOS 1:",cambios);
+        console.log("ROL: ",rol);
+        cambios.ROLES = rol;
+        console.log("CAMBIOS 2:",cambios);
 
         let user = await UsersSchema.findOneAndUpdate(
             {USERID:userid},

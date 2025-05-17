@@ -1,13 +1,13 @@
 const cds = require("@sap/cds");
 const { RolesCRUD } = require("../services/sec-roles-service");
 const { ValuesCRUD } = require("../services/sec-values-service");
+const { UsersCRUD } = require("../services/sec-users-service");
 const { CatalogsR } = require("../services/sec-catalogs-service");
 const {
   GetAllLabels,
   PostLabel,
   DeleteLabel,
   PutLabel,
-  LogicalLabel,
 } = require("../services/sec-labels-service");
 
 class SecurityClass extends cds.ApplicationService {
@@ -37,6 +37,14 @@ class SecurityClass extends cds.ApplicationService {
     });
     this.on("logicalLabel", async (req) => {
       return LogicalLabel(req);
+    });
+
+    //CRUD USERS
+
+    this.on("usersCRUD", async (req) => {
+      console.log(req);
+      const reqType = req.query?.reqType;
+      return UsersCRUD(req);
     });
   }
 }
