@@ -6,6 +6,7 @@ service InversionsRoute @(path:'/api/inv') {
   entity indicatores as projection on myinv.indicatores;
   entity st as projection on myinv.strategy;
   entity simulations as projection on myinv.Simulations;
+   entity symbol as projection on myinv.symbols;
 
   @Core.Description: 'get-all-indicators'
   @path: 'indicators' 
@@ -37,4 +38,7 @@ service InversionsRoute @(path:'/api/inv') {
   action deletesimulation(simulation: simulations)
     returns array of simulations;
 
+    @Core.Description: 'get-all-symbols'
+    function company()
+        returns array of symbol;
 }

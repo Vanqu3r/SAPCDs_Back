@@ -1,13 +1,14 @@
 const cds = require('@sap/cds');
 //const {GetAllPricesHistory,AddOnePricesHistory,DeleteOnePricesHistory} = require('../services/inv-priceshistory-service');
 const {getIndicadors} = require('../services/inv-indicadors-service');
+const {getAllSymbols} = require('../services/inv-symbols-service')
 const {Simulate,
     GetAllSimulations,
     UpdateSimulationName,
     DeleteSimulation} = require('../services/inv-simulations-service');
 const {StrategyCrud} = require('../services/inv-strategy-service');
 
-class InversionsClass extends cds.ApplicationService {
+class InversionsRoute extends cds.ApplicationService {
     async init(){
         // this.on('getall',async (req)=>{return GetAllPricesHistory(req);});this.on('addone',async (req)=>{return AddOnePricesHistory(req);});
         // this.on('deleteone',async (req)=>{return DeleteOnePricesHistory(req);});
@@ -38,7 +39,13 @@ class InversionsClass extends cds.ApplicationService {
             return getIndicadors(req);
         });
 
+        //Symbols
+        this.on('company', async (req) => {
+            return getAllSymbols(req);
+        });
+
+        //more functions
         return await super.init();
     };
 };
-module.exports = InversionsClass;
+module.exports = InversionsRoute;

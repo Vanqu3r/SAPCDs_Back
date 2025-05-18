@@ -158,7 +158,7 @@ function calculateMOM(prices, period = 14) {
 
   return momArray;
 }
-
+/*
 function calculateIndicators(prices, indicators) {
   console.log("DATOS:",prices.length);
   const short = indicators.includes("EMA21") ? calculateEMA(prices, 21) : [];
@@ -180,7 +180,73 @@ function calculateIndicators(prices, indicators) {
     ...(adx.length ? {ADX: adx[i]} : {}),
     ...(mom.length ? {MOM: mom[i]} : {})
   }));
+}*/
+function calculateIndicators(prices, indicators) {
+  console.log("DATOS:", prices.length);
+
+  const results = {
+    SHORT: [],
+    LONG: [],
+    RSI: [],
+    MACD: [],
+    ADX: [],
+    MOM: []
+  };
+
+  // Recorrer indicadores y calcular según el tipo
+  indicators.forEach((indicator) => {
+    const name = indicator.name.toUpperCase();
+    const label = indicator.label?.toUpperCase() || name; 
+
+    switch (name) {
+      case "EMA":
+        if (label === "EMA21") {
+          results.SHORT = calculateEMA(prices, indicator.period || 21);
+        } else if (label === "EMA50") {
+          results.LONG = calculateEMA(prices, indicator.period || 50);
+        }
+        break;
+
+      case "RSI":
+        results.RSI = calculateRSI(prices, indicator.period || 14);
+        break;
+
+      case "MACD":
+        results.MACD = calculateMACD(prices, {
+          fast: indicator.fast || 12,
+          slow: indicator.slow || 26,
+          signal: indicator.signal || 9
+        });
+        break;
+
+      case "ADX":
+        results.ADX = calculateADX(prices, indicator.period || 14);
+        break;
+
+      case "MOM":
+        results.MOM = calculateMOM(prices, indicator.period || 10);
+        break;
+
+      default:
+        console.warn(`Indicador desconocido: ${name}`);
+    }
+  });
+
+  // Combinar resultados con los datos originales
+  return prices.map((item, i) => ({
+    date: item.date,
+    ...Object.fromEntries(
+      Object.entries(item).filter(([key]) => key !== "date")
+    ),
+    ...(results.SHORT.length ? { SHORT: results.SHORT[i] } : {}),
+    ...(results.LONG.length ? { LONG: results.LONG[i] } : {}),
+    ...(results.RSI.length ? { RSI: results.RSI[i] } : {}),
+    ...(results.MACD.length ? { MACD: results.MACD[i] } : {}),
+    ...(results.ADX.length ? { ADX: results.ADX[i] } : {}),
+    ...(results.MOM.length ? { MOM: results.MOM[i] } : {})
+  }));
 }
+
   
   module.exports = { calculateIndicators };
   

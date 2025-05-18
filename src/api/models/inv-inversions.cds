@@ -90,3 +90,11 @@ entity indicatores {
   timezone        : String;
   data            : LargeString; // o Composition of structure si prefieres estructurar
 }
+
+
+entity symbols  {
+    key symbol : String;
+        name : String;
+        exchange : String;
+        assetType: String;
+};

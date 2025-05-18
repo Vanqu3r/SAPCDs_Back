@@ -1,3 +1,4 @@
+
 const axios = require("axios");
 const { calculateIndicators } = require("../utils/indicadors");
 const Indicador = require("../models/mongodb/indicadors");
@@ -26,8 +27,9 @@ async function getIndicadors(req) {
   const { procedure } = req.req.query;
   try {
     if (procedure === "POST") {
-      const { symbol, interval = "daily", indicators} = req.req.query;
-
+      const { symbol, interval = "daily"} = req.req.query;
+      const {indicators} = req.req.body;
+      console.log(indicators);
       if (!symbol) throw new Error("Falta el parámetro 'symbol'");
 
       // Llamar Alpha Vantage para obtener el nombre de la compañía
@@ -36,7 +38,7 @@ async function getIndicadors(req) {
 
       const companyReg = await Indicador.findOne({
         symbol:symbol,
-        name:name
+       name:name
       }).lean();
 
       if(!companyReg){
@@ -59,14 +61,14 @@ async function getIndicadors(req) {
           .reverse(); // De más antiguo a más nuevo
 
         // Calcular indicadores
-        const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
-        const dataConIndicadores = calculateIndicators(parsedData, indicArray);
+        //const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
+        const dataConIndicadores = calculateIndicators(parsedData, indicators);
 
         // Generar respuesta tipo Mongo
         const result = {
           _id: 'ObjectId("...")',
           symbol,
-          name, // Aquí asignamos el nombre de la compañía
+          //name, // Aquí asignamos el nombre de la compañía
           strategy: "Momentum",
           assetType: "stock",
           interval,
@@ -91,8 +93,8 @@ async function getIndicadors(req) {
       }else{
         const prices = companyReg.data;
         // Calcular indicadores
-        const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
-        const dataConIndicadores = calculateIndicators(prices, indicArray);
+        //const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
+        const dataConIndicadores = calculateIndicators(prices, indicators);
 
         companyReg.data = dataConIndicadores;
         //console.log("COMPANY: ",companyReg.data);
