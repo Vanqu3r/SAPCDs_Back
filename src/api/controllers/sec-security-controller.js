@@ -18,18 +18,20 @@ class SecurityClass extends cds.ApplicationService {
     });
 
     //CRUD DE LABELS
-    this.on('getall', async (req) => {
+     this.on("getall", async (req) => {
       return GetAllLabels(req);
     });
-
-    this.on('newLabel', async (req) => {
+    this.on("newLabel", async (req) => {
       return PostLabel(req);
     });
-    this.on('deleteLabel', async (req) => {
+    this.on("deleteLabel", async (req) => {
       return DeleteLabel(req);
     });
-    this.on('updateLabel', async (req) => {
+    this.on("updateLabel", async (req) => {
       return PutLabel(req);
+    });
+    this.on("logicalLabel", async (req) => {
+      return LogicalLabel(req);
     });
 
     //CRUD USERS
