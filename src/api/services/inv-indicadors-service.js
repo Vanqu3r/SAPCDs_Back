@@ -27,8 +27,8 @@ async function getIndicadors(req) {
   const { procedure } = req.req.query;
   try {
     if (procedure === "POST") {
-      const { symbol, interval = "daily"} = req.req.query;
-      const {indicators} = req.req.body;
+      const { symbol, interval = "daily" } = req.req.query;
+      const { indicators } = req.req.body;
       console.log(indicators);
       if (!symbol) throw new Error("Falta el parámetro 'symbol'");
 
@@ -37,11 +37,11 @@ async function getIndicadors(req) {
       if (!name) throw new Error("No se pudo obtener el nombre de la compañía");
 
       const companyReg = await Indicador.findOne({
-        symbol:symbol,
-       name:name
+        symbol: symbol,
+        name: name
       }).lean();
 
-      if(!companyReg){
+      if (!companyReg) {
         //Si no esta en los indicadores ya registrados, se llama a la API y se hacen todos los calculos.
         // Llamar Alpha Vantage para obtener los datos de la serie temporal
         const url = `https://www.alphavantage.co/query?function=TIME_SERIES_${interval.toUpperCase()}&symbol=${symbol}&apikey=${API_KEY}`;
@@ -90,7 +90,7 @@ async function getIndicadors(req) {
         await indicadorDoc.save();
 
         return result;
-      }else{
+      } else {
         const prices = companyReg.data;
         // Calcular indicadores
         //const indicArray = indicators.split(",").map((i) => i.trim().toUpperCase());
@@ -99,15 +99,24 @@ async function getIndicadors(req) {
         companyReg.data = dataConIndicadores;
         //console.log("COMPANY: ",companyReg.data);
 
-        const nuevo = await Indicador.findOneAndUpdate({symbol:symbol,name:name},{$set:companyReg},{new:true});
+        const nuevo = await Indicador.findOneAndUpdate({ symbol: symbol, name: name }, { $set: companyReg }, { new: true });
 
         return nuevo.toObject();
       }
 
-      
-    } 
+
+    }
     else if (procedure === "GET") {
-      const result = await Indicador.find().lean();
+      const { name } = req.req.query; // Asegúrate de recibir `name` como parámetro
+
+      let result;
+
+      if (name) {
+        result = await Indicador.find({ name: name }).lean();
+      } else {
+        result = await Indicador.find().lean(); // Si no se pasa `name`, trae todo
+      }
+
       return result;
     }
   } catch (error) {
