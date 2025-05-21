@@ -1,15 +1,21 @@
 namespace inv;
 
-entity priceshistory {
-    key ID     : Integer;
-        DATE   : DateTime;
-        OPEN   : String;
-        HIGH   : String;
-        LOW    : Decimal;
-        CLOSE  : Decimal;
-        VOLUME : Decimal;
-};
+entity PriceHistory {
+    key symbol    : String;
+        name      : String;
+        assetType : String;
+        interval  : String;
+        timezone  : String;
 
+        data : array of {
+            DATE   : DateTime;
+            OPEN   : Decimal(15,4);
+            HIGH   : Decimal(15,4);
+            LOW    : Decimal(15,4);
+            CLOSE  : Decimal(15,4);
+            VOLUME : Integer;
+        };
+}
 
 
 entity strategy {
@@ -88,7 +94,7 @@ entity indicatores {
   assetType       : String;
   interval        : String;
   timezone        : String;
-  data            : LargeString; // o Composition of structure si prefieres estructurar
+  data            : LargeString; 
 }
 
 
