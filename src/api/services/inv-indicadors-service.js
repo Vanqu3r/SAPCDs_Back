@@ -20,7 +20,6 @@ async function getIndicadors(req, res) {
           message: "No se especificaron indicadores para calcular.",
         };
       }
-
       const exite = await indicadors.findOne({
         symbol: symbol,
       }).lean();
@@ -164,7 +163,7 @@ async function checkAndCreateSymbol(symbol, interval, name = symbol) {
 
   try {
     const getUrl = `${apiUrl}?procedure=GET&symbol=${symbol}`;
-    const getResponse = await axios.get(getUrl);
+    const getResponse = await axios.post(getUrl);
     const existingItem = getResponse.data?.value?.[0];
 
     if (existingItem && existingItem.symbol === symbol && existingItem.data?.length > 0) {
@@ -175,15 +174,15 @@ async function checkAndCreateSymbol(symbol, interval, name = symbol) {
     console.log(`🔍 El símbolo ${symbol} no existe o no tiene datos. Intentando crearlo...`);
 
     const postUrl = `${apiUrl}?procedure=POST&symbol=${symbol}&interval=${interval}&name=${encodeURIComponent(name)}`;
-    await axios.get(postUrl); // Dispara creación
+    await axios.post(postUrl); // Dispara creación
 
     // 🔁 Reintentar hasta que tenga data real
     for (let i = 0; i < 5; i++) {
       await wait(2000); // Esperar 2 segundos
-      const retryResponse = await axios.get(getUrl);
+      const retryResponse = await axios.post(getUrl);
       const retryItem = retryResponse.data?.value?.[0];
       if (retryItem?.data?.length > 0) {
-        console.log(`✅ Datos disponibles para ${symbol} tras ${i + 1} reintento(s).`);
+        //Datos ya disponibles
         return retryItem;
       }
     }
