@@ -34,7 +34,12 @@ async function RolesCRUD(req) {
 
     // GET ALL ------------------------------------
     if (procedure === 'get' && type === 'all') {
-      result = await RolesInfoSchema.find().lean();
+      const filter = {};
+      if (roleid) {
+        filter.ROLEID = roleid;
+      }
+
+      result = await RolesInfoSchema.find(filter).lean()
 
 
 
@@ -50,14 +55,14 @@ async function RolesCRUD(req) {
 
       // POST -------------------------------------
     } else if (req.req.query.procedure === 'post') {
-      
+
       const nuevoRol = req.req.body;
       await validarProcessIds(nuevoRol.PRIVILEGES);
 
       const nuevoRolito = await RoleSchema.create(nuevoRol);
       result = nuevoRolito.toObject();
 
-        
+
 
 
       // DELETE ----------------------------
@@ -71,7 +76,7 @@ async function RolesCRUD(req) {
         updated = await RoleSchema.findOneAndUpdate(
           { ROLEID: roleid },
           {
-            $set: { 'DETAIL_ROW.ACTIVED': false,  'DETAIL_ROW.DELETED': true }
+            $set: { 'DETAIL_ROW.ACTIVED': false, 'DETAIL_ROW.DELETED': true }
           },
           { new: true }
         );
@@ -98,38 +103,67 @@ async function RolesCRUD(req) {
 
 
       //PUT ----------------------------------------------
-
     } else if (procedure === 'put') {
       if (!roleid) throw new Error('Parametro faltante (RoleID)');
 
-      const camposActualizar = req.req.body;
-
-      if (!camposActualizar || Object.keys(camposActualizar).length === 0) {
+      const nuevosCampos = req.req.body;
+      if (!nuevosCampos || Object.keys(nuevosCampos).length === 0) {
         throw new Error('No se proporcionan campos para actualizar');
       }
 
-      //SI HAY PRIVILEGIOS A ACTUALIZAR SE LLAMA LA FUNCION PARA VALIDAR ESA COSA
-      if (camposActualizar.PRIVILEGES) {
-        await validarProcessIds(camposActualizar.PRIVILEGES);
+      // Obtener el documento actual
+      const roleActual = await RoleSchema.findOne({ ROLEID: roleid });
+      if (!roleActual) throw new Error('No se encontró el rol para actualizar');
+
+      // Validar PRIVILEGES si está presente
+      if (nuevosCampos.PRIVILEGES) {
+        await validarProcessIds(nuevosCampos.PRIVILEGES);
       }
 
+      // Comparar campo por campo para detectar qué cambió
+      const camposCambiados = {};
+      for (const key in nuevosCampos) {
+        const nuevoValor = JSON.stringify(nuevosCampos[key]);
+        const valorActual = JSON.stringify(roleActual[key]);
+
+        if (nuevoValor !== valorActual) {
+          camposCambiados[key] = nuevosCampos[key];
+        }
+      }
+
+      if (Object.keys(camposCambiados).length === 0) {
+        throw new Error('No hay cambios detectados para actualizar');
+      }
+
+      // Agregar registro a DETAIL_ROW.DETAIL_ROW_REG
+      const now = new Date();
+      const reguser = req.req.user?.email || 'SYSTEM';
+
+      camposCambiados['DETAIL_ROW.DETAIL_ROW_REG'] = [
+        ...roleActual.DETAIL_ROW.DETAIL_ROW_REG.map(r => ({ ...r, CURRENT: false })),
+        {
+          CURRENT: true,
+          REGDATE: now,
+          REGTIME: now,
+          REGUSER: reguser
+        }
+      ];
+
+      // Ejecutar la actualización
       const updated = await RoleSchema.findOneAndUpdate(
         { ROLEID: roleid },
-        { $set: camposActualizar },
+        { $set: camposCambiados },
         { new: true }
       );
 
-      if (!updated) throw new Error('No se encontró el rol para actualizar');
-
       result = updated.toObject();
-
     } else {
       console.log('No coincide ningún procedimiento');
       throw new Error('Parámetros inválidos o incompletos');
     }
 
 
-      return JSON.parse(JSON.stringify(result));
+    return JSON.parse(JSON.stringify(result));
 
   } catch (error) {
     console.error('Error en RolesCRUD:', error);
