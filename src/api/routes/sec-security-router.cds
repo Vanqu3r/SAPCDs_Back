@@ -37,25 +37,34 @@ service SecurityRoute @(path: '/api/sec') {
 
     //----------LABELS----------------------
 
-    @Core.Description: 'get-all-labels'
-    @path            : 'getall'
-    function getall()     returns array of labels;
-
-    @Core.Description: 'new Label'
-    @path            : 'newLabel'
-    action newLabel(values:labels)  
+    @Core.Description: 'CRUD de Labels'
+    @path            : 'labelCRUD'
+    action labelCRUD()  
     returns array of labels;
+    
+    //Rutas para los labels
+    // GET ALL LABELS
+    // http://localhost:4004/api/sec/labelCRUD?procedure=getall
 
-    @Core.Description: 'DELETE Label'
-    @path            : 'deleteLabel'
-    action deleteLabel()  
-    returns array of labels;
+    // GET LABEL BY LABELID
+    //Retorna todas las labels con el mismo LabelID
+    // http://localhost:4004/api/sec/labelCRUD?procedure=getone&labelId=IdPrivileges
 
-    @Core.Description: 'UPDATE Label'
-    @path            : 'updateLabel'
-    action updateLabel(values:labels)  
-    returns array of labels;
+    //Patch 
+    //http://localhost:4004/api/sec/labelCRUD?procedure=patch
 
+<<<<<<< Updated upstream
+=======
+    //Put
+    //http://localhost:4004/api/sec/labelCRUD?procedure=post
+
+    //delete Logic
+    //http://localhost:4004/api/sec/labelCRUD?procedure=delete&type=logic
+    //delete hard
+    //http://localhost:4004/api/sec/labelCRUD?procedure=delete&type=hard
+    //----------------------------------------------------------------------------
+   
+>>>>>>> Stashed changes
     // GET ALL CATALOGS
     // http://localhost:4004/api/sec/catalogsR?procedure=get&type=all
 
