@@ -68,15 +68,38 @@ async function RolesCRUD(req) {
       //DELETE LOGICO
       if (type === 'logic') {
 
-        updated = await RoleSchema.findOneAndUpdate(
-          { ROLEID: roleid },
-          {
-            $set: { 'DETAIL_ROW.ACTIVED': false,  'DETAIL_ROW.DELETED': true }
-          },
-          { new: true }
-        );
+        // Buscar rol actual
+        const role = await RoleSchema.findOne({ ROLEID: roleid });
+        if (!role) throw new Error('No se encontró ningún rol');
 
-        if (!updated) throw new Error('No existe el rol especificado.');
+        if (!role.DETAIL_ROW) {
+          role.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        }
+
+        const now = new Date();
+        const currentUser = req.req.query?.user?.USERID || 'SYSTEM';
+
+        if (Array.isArray(role.DETAIL_ROW.DETAIL_ROW_REG)) {
+            role.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+              if (reg.CURRENT) reg.CURRENT = false;
+          });
+        } else {
+          role.DETAIL_ROW.DETAIL_ROW_REG = [];
+        }
+
+        // Marcar borrado lógico
+        role.DETAIL_ROW.ACTIVED = false;
+        role.DETAIL_ROW.DELETED = true;
+
+        // Agregar nuevo registro en DETAIL_ROW_REG
+        role.DETAIL_ROW.DETAIL_ROW_REG.push({
+            CURRENT: true,
+            REGDATE: now,
+            REGTIME: now,
+            REGUSER: currentUser
+        });
+
+        const updated = await role.save();
         result = updated.toObject();
 
         console.log('Rol desactivado');
@@ -108,20 +131,45 @@ async function RolesCRUD(req) {
         throw new Error('No se proporcionan campos para actualizar');
       }
 
+      const role = await RoleSchema.findOne({ ROLEID: roleid });
+
+      if(!role) throw new Error('El rol a actualizar no existe');
+      
       //SI HAY PRIVILEGIOS A ACTUALIZAR SE LLAMA LA FUNCION PARA VALIDAR ESA COSA
       if (camposActualizar.PRIVILEGES) {
         await validarProcessIds(camposActualizar.PRIVILEGES);
       }
 
-      const updated = await RoleSchema.findOneAndUpdate(
-        { ROLEID: roleid },
-        { $set: camposActualizar },
-        { new: true }
-      );
+      // Desactivar el registro CURRENT actual en DETAIL_ROW_REG
+      if (!role.DETAIL_ROW) {
+          role.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+      }
 
-      if (!updated) throw new Error('No se encontró el rol para actualizar');
+      const now = new Date();
+      const currentUser = req.req?.query?.USERID || 'SYSTEM';
 
-      result = updated.toObject();
+      if (Array.isArray(role.DETAIL_ROW.DETAIL_ROW_REG)) {
+          role.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+              if (reg.CURRENT) reg.CURRENT = false;
+          });
+      } else {
+          role.DETAIL_ROW.DETAIL_ROW_REG = [];
+      }
+
+      // Agregar nuevo registro en DETAIL_ROW_REG
+      role.DETAIL_ROW.DETAIL_ROW_REG.push({
+          CURRENT: true,
+          REGDATE: now,
+          REGTIME: now,
+          REGUSER: currentUser
+      });
+
+      
+        // Aplicar cambios recibidos
+        Object.assign(role, camposActualizar);
+
+        const updated = await role.save();
+        result = updated.toObject();
 
     } else {
       console.log('No coincide ningún procedimiento');
