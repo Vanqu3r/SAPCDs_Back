@@ -53,18 +53,6 @@ service SecurityRoute @(path: '/api/sec') {
     //Patch 
     //http://localhost:4004/api/sec/labelCRUD?procedure=patch
 
-<<<<<<< Updated upstream
-=======
-    //Put
-    //http://localhost:4004/api/sec/labelCRUD?procedure=post
-
-    //delete Logic
-    //http://localhost:4004/api/sec/labelCRUD?procedure=delete&type=logic
-    //delete hard
-    //http://localhost:4004/api/sec/labelCRUD?procedure=delete&type=hard
-    //----------------------------------------------------------------------------
-   
->>>>>>> Stashed changes
     // GET ALL CATALOGS
     // http://localhost:4004/api/sec/catalogsR?procedure=get&type=all
 
