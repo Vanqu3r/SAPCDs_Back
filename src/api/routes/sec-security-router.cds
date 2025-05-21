@@ -2,18 +2,21 @@ using {sec as mysec} from '../models/sec-security';
 
 @impl: 'src/api/controllers/sec-security-controller.js'
 
+
 service SecurityRoute @(path: '/api/sec') {
     entity roles    as projection on mysec.roles;
     entity labels   as projection on mysec.labels;
     entity values   as projection on mysec.values;
+    entity users as projection on mysec.users;
     entity catalogs as projection on mysec.catalogs;
 
     @Core.Description: 'CRUD de Roles'
     @path            : 'rolesCRUD'
-    function rolesCRUD()  returns array of roles;
+    action rolesCRUD()
+    returns array of roles;
 
     // GET ALL ROLES
-    // http://localhost:4004/api/secc/rolesCRUD?procedure=get&type=all
+    // http://localhost:4004/api/sec/rolesCRUD?procedure=get&type=all
 
     // GET ALL ROLES WITH USERS
     // http://localhost:4004/api/sec/rolesCRUD?procedure=get&type=users
@@ -53,6 +56,25 @@ service SecurityRoute @(path: '/api/sec') {
     //Patch 
     //http://localhost:4004/api/sec/labelCRUD?procedure=patch
 
+    @Core.Description: 'new Label'
+    @path            : 'newLabel'
+    action newLabel(values:labels)  
+    returns array of labels;
+
+    @Core.Description: 'DELETE Label'
+    @path            : 'deleteLabel'
+    action deleteLabel()  
+    returns array of labels;
+
+    @Core.Description: 'UPDATE Label'
+    @path            : 'updateLabel'
+    action updateLabel(values:labels)  
+    returns array of labels;
+
+    @Core.Description: 'LOGICAL Label'
+    @path            : 'logicalLabel'
+    action logicalLabel()
+    returns array of labels;
     // GET ALL CATALOGS
     // http://localhost:4004/api/sec/catalogsR?procedure=get&type=all
 
@@ -66,8 +88,8 @@ service SecurityRoute @(path: '/api/sec') {
     @path            : 'catalogsR'
     function catalogsR()  returns array of catalogs;
 
-
-  
-
-
+    @Core.Description: 'crud-for-users'
+    @path: 'usersCRUD'
+        action usersCRUD()
+        returns array of users;
 }

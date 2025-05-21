@@ -8,7 +8,8 @@ async function ValuesCRUD(req) {
     let result;
 
     if (procedure === 'post') {
-        const newValue = req.req.body;
+        console.log('POST procedure');
+        const newValue = req.req.query;
         const labelprocess = newValue.LABELID;
         if (labelprocess==="IdViews") {
             result = postValidation("IdApplications",newValue);
@@ -23,7 +24,7 @@ async function ValuesCRUD(req) {
     }
     
     if (procedure === 'put') {    
-      const updateValue = req.req.body;
+      const updateValue = req.req.query;
       let ValueOriginal = await ValueSchema.findOne({
         VALUEID: updateValue.VALUEID,
         LABELID: updateValue.LABELID
@@ -44,11 +45,7 @@ async function ValuesCRUD(req) {
 
     }
 
-    if (procedure === 'delete' && labelID!==null && ValueID!==null) {
-      result=deleteAndActivedLogic(procedure,labelID,ValueID);
-    }
-    
-    if (procedure === 'actived' && labelID!==null && ValueID!==null) {
+    if ((procedure === 'delete' || procedure === 'actived') && labelID!==null && ValueID!==null) {
       result=deleteAndActivedLogic(procedure,labelID,ValueID);
     }
 
@@ -58,6 +55,10 @@ async function ValuesCRUD(req) {
         VALUEID: ValueID
       });
       result = deletePermanent.toObject();
+    }
+
+    if (procedure === 'get' && labelID !== null) {
+      result = await ValueSchema.find({LABELID: labelID}).lean();
     }
 
     return result;
@@ -74,7 +75,7 @@ async function postValidation(type,newValue) {
                 LABELID: type
               }).lean();
             if (validacion===null){
-                throw new Error(`El siguiente ${type}  no existe: ${processIds}`);
+                throw new Error(`El siguiente ${type}  no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
             }else{
                 const validValue = await ValueSchema.create(newValue); 
                 result = validValue.toObject();
@@ -89,7 +90,7 @@ async function putValidation(type,Value) {
               LABELID: type
             }).lean();
           if (validacion===null){
-            throw new Error(`El siguiente valor de ${type} no existe: ${Value.VALUEPAID}`);
+            throw new Error(`El siguiente valor de ${type} no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
           }else{
             return result = Update(Value);
           }
