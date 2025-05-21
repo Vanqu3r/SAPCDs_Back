@@ -35,12 +35,12 @@ async function UsersCRUD(req) {
 
         //Validacion de la existencia de roles
         switch (procedure) {
-            case 'getall':
-                //Esto lo voy  cambiar probablemente
-                res = GetAllUsers();
-                break;
-            case 'getone':
-                res = GetOneUser(userid);
+            case 'get':
+                if(type === 'all'){
+                    res = GetAllUsers();
+                }else if(type === 'one'){
+                    res = GetOneUser(userid);
+                }
                 break;
             case 'post':
                 console.log("Entra al case");
