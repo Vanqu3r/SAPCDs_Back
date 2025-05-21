@@ -13,13 +13,13 @@ service InversionsRoute @(path:'/api/inv') {
 
  @Core.Description: 'PriceHistory'
   @path: 'priceshistorycrud' 
-  function priceshistorycrud()
+  action priceshistorycrud()
     returns array of PriceHistory;
 
 
   @Core.Description: 'get-all-indicators'
   @path: 'indicators' 
-  function indicators()
+    action indicators(indicators: array of IndicatorInput)
     returns array of indicatores;
 
   @Core.Description: 'strategies'
@@ -34,7 +34,7 @@ service InversionsRoute @(path:'/api/inv') {
     
   @Core.Description: 'post-a-simulation'
   @path: 'simulate'
-  action simulate(simulation: simulations)
+  action simulate(indicators: array of IndicatorInput,symbol:String,startDate: DateTime, endDate: DateTime, amount: Decimal(15,2), amountToBuy: Decimal(15,2),userId:String,simulationName:String)
     returns array of simulations;
 
   @Core.Description: 'update-simulation'
@@ -49,5 +49,13 @@ service InversionsRoute @(path:'/api/inv') {
 
     @Core.Description: 'get-all-symbols'
     function company()
-        returns array of symbol;
+        returns array of symbol;     
+}
+type IndicatorInput: {
+  name: String;
+  label: String;
+  period: Integer;
+  fast: Integer;
+  slow: Integer;
+  signal: Integer;
 }
