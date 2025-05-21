@@ -70,10 +70,32 @@ async function UsersCRUD(req) {
 
 async function GetAllUsers() {
     try {
-        //const allUsers = await UsersSchema.find().lean();
-        const allUsers = await usersComplete.find().lean();
+        const allUsers = await UsersSchema.find().lean();
 
-        return allUsers;
+        const enrichedUsers = await Promise.all(allUsers.map(async user => {
+            const userRoles = user.ROLES || [];
+
+            const fullRoles = await Promise.all(userRoles.map(async roleRef => {
+                const role = await RoleSchema
+                .findOne({ ROLEID: roleRef.ROLEID })
+                .select("-DETAIL_ROW") // Excluir DETAIL_ROW
+                .lean();
+
+                return role || {
+                ROLEID: roleRef.ROLEID,
+                error: "Rol no encontrado"
+                };
+                
+
+            }));
+
+            return {
+                ...user,
+                ROLES: fullRoles
+            };
+        }));
+
+            return enrichedUsers;
     } catch (error) {
         return error;
     }
@@ -81,17 +103,40 @@ async function GetAllUsers() {
 
 async function GetOneUser(userid) {
     try {
-        //const userId = req.req.query?.userid;
-        //const user = await UsersSchema.findOne({USERID:userid}).lean();
-        const user = await usersComplete.findOne({USERID:userid}).lean();
+        const user = await UsersSchema.findOne({ USERID: userid }).lean();
 
-        if(!user){
-            return {mensaje:'No se encontró el usuario'};
+        if (!user) {
+            return { mensaje: 'No se encontró el usuario' };
         }
 
-        return user;
+        const userRoles = user.ROLES || [];
+
+        const fullRoles = await Promise.all(userRoles.map(async roleRef => {
+            const role = await RoleSchema
+                .findOne({ ROLEID: roleRef.ROLEID })
+                .select("-DETAIL_ROW") // Excluir DETAIL_ROW
+                .lean();
+
+            if (!role) {
+                return {
+                    ROLEID: roleRef.ROLEID,
+                    error: "Rol no encontrado"
+                };
+            }
+
+            return {
+                ...roleRef,
+                ...role,
+            };
+        }));
+
+        return {
+            ...user,
+            ROLES: fullRoles
+        };
+
     } catch (error) {
-        return error;
+        return { error: error.message };
     }
 }
 
@@ -122,47 +167,104 @@ async function PostUser(req) {
 async function UpdateUser(req,userid){
     try{
         const cambios = req.req.body;
+        
+        // Buscar usuario actual
+        const user = await UsersSchema.findOne({ USERID: userid });
+
+        // Validar si existe el usuario
+        if(!user){throw new Error('No se encontró ningún usuario');}
+
+        // Validar que existan elementos en el body
         if(!cambios){throw new Error('No envió los datos del usuario a agregar');}
-        //VALIDAR ROLES
-        if(!cambios){throw new Error('No envió los datos del usuario a agregar');}
-        //VALIDAR ROLES
+
+        // Validar roles
         const rol = await validarRol(cambios.ROLES);
         console.log("CAMBIOS 1:",cambios);
         console.log("ROL: ",rol);
         cambios.ROLES = rol;
         console.log("CAMBIOS 2:",cambios);
 
-        let user = await UsersSchema.findOneAndUpdate(
-            {USERID:userid},
-            {$set:cambios},
-            {new:true}
-        );
-
-        if(!user){
-            throw new Error('No se pudo actualizar al usuario');
+        if (!user) {
+            throw new Error('Usuario no encontrado');
         }
 
-        return user.toObject();
+        // Desactivar el registro CURRENT actual en DETAIL_ROW_REG
+        if (!user.DETAIL_ROW) {
+            user.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        }
+
+        const now = new Date();
+        const currentUser = req.user?.USERID || 'SYSTEM';
+
+        if (Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
+            user.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+                if (reg.CURRENT) reg.CURRENT = false;
+            });
+        } else {
+            user.DETAIL_ROW.DETAIL_ROW_REG = [];
+        }
+
+        // Agregar nuevo registro en DETAIL_ROW_REG
+        user.DETAIL_ROW.DETAIL_ROW_REG.push({
+            CURRENT: true,
+            REGDATE: now,
+            REGTIME: now,
+            REGUSER: currentUser
+        });
+
+        // Aplicar cambios recibidos
+        Object.assign(user, cambios);
+
+        const updated = await user.save();
+        return updated.toObject();
+
     }catch(error){
         return error;
     }
 }
 
-async function LogDelete(userid){
-    try {
-        const user = await UsersSchema.findOneAndUpdate(
-            {USERID:userid},
-            {$set:{'DETAIL_ROW.ACTIVED': false,  'DETAIL_ROW.DELETED': true }},
-            {new:true}
-        );
-        if(!user){
-            throw new Error('No se pudo eliminar logicamente');
-        }
+async function LogDelete(userid, req) {
+  try {
+    // Buscar usuario actual
+    const user = await UsersSchema.findOne({ USERID: userid });
 
-        return user.toObject();
-    } catch (error) {
-        return error;
+    if (!user) throw new Error('No se encontró ningún usuario');
+
+    if (!user.DETAIL_ROW) {
+      user.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
     }
+
+    const now = new Date();
+    const currentUser = req?.user?.USERID || 'SYSTEM';
+
+    if (Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
+      user.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+        if (reg.CURRENT) reg.CURRENT = false;
+      });
+    } else {
+      user.DETAIL_ROW.DETAIL_ROW_REG = [];
+    }
+
+    // Marcar borrado lógico
+    user.DETAIL_ROW.ACTIVED = false;
+    user.DETAIL_ROW.DELETED = true;
+
+    // Nuevo registro de detalle
+    user.DETAIL_ROW.DETAIL_ROW_REG.push({
+      CURRENT: true,
+      REGDATE: now,
+      REGTIME: now,
+      REGUSER: currentUser
+    });
+
+    // Guardar cambios
+    const updated = await user.save();
+
+    return updated.toObject();
+  } catch (error) {
+    console.error('Error en LogDelete:', error);
+    throw error;  // Mejor lanzar el error para que el controlador lo capture
+  }
 }
 
 async function HardDelete(userid) {
