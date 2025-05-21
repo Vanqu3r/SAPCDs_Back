@@ -14,47 +14,61 @@ async function getIndicadors(req, res) {
     if (procedure === "POST") {
       const { symbol, interval } = req.req.query;
       const { indicators } = req.req.body;
-
-      const result = await checkAndCreateSymbol(symbol, interval);
-      if (result && result.data && result.data.length > 0) {
-        // Parsear los datos para el cálculo de indicadores
-        const parsedData = result.data.map(entry => ({
-          date: new Date(entry.DATE),
-          close: parseFloat(entry.CLOSE),
-          high: parseFloat(entry.HIGH),
-          low: parseFloat(entry.LOW),
-          volume: parseFloat(entry.VOLUME),
-        })).reverse(); // Opcional, según cómo venga ordenada la data
-
-        // Calcular indicadores con la función que tengas definida
-        const dataConIndicadores = calculateIndicators(parsedData, indicators);
-
-        // Preparar el documento a guardar en MongoDB
-        const indicadorDoc = new Indicador({
-          symbol: result.symbol,
-          name: result.name,
-          strategy: "Momentum",
-          assetType: result.assetType || "stock",
-          interval: result.interval,
-          timezone: result.timezone || "UTC",
-          data: dataConIndicadores,
-        });
-
-        // Guardar en la base de datos
-        await indicadorDoc.save();
-
-        // Devolver la data procesada
+      if (!indicators || indicators.length === 0) {
         return {
-          symbol: result.symbol,
-          name: result.name,
-          strategy: "Momentum",
-          assetType: result.assetType || "stock",
-          interval: result.interval,
-          timezone: result.timezone || "UTC",
-          data: dataConIndicadores,
+          status: "error",
+          message: "No se especificaron indicadores para calcular.",
         };
+      }
+
+      const exite = await indicadors.findOne({
+        symbol: symbol,
+      }).lean();
+
+      if (!exite) {
+        const result = await checkAndCreateSymbol(symbol, interval);
+        if (result && result.data && result.data.length > 0) {
+          // Parsear los datos para el cálculo de indicadores
+          const parsedData = result.data.map(entry => ({
+            date: new Date(entry.DATE),
+            close: parseFloat(entry.CLOSE),
+            high: parseFloat(entry.HIGH),
+            low: parseFloat(entry.LOW),
+            volume: parseFloat(entry.VOLUME),
+          })).reverse(); // Opcional, según cómo venga ordenada la data
+
+          // Calcular indicadores con la función que tengas definida
+          const dataConIndicadores = calculateIndicators(parsedData, indicators);
+
+          // Preparar el documento a guardar en MongoDB
+          const indicadorDoc = new Indicador({
+            symbol: result.symbol,
+            name: result.name,
+            strategy: "Momentum",
+            assetType: result.assetType || "stock",
+            interval: result.interval,
+            timezone: result.timezone || "UTC",
+            data: dataConIndicadores,
+          });
+
+          // Guardar en la base de datos
+          await indicadorDoc.save();
+
+          // Devolver la data procesada
+          return {
+            symbol: result.symbol,
+            name: result.name,
+            strategy: "Momentum",
+            assetType: result.assetType || "stock",
+            interval: result.interval,
+            timezone: result.timezone || "UTC",
+            data: dataConIndicadores,
+          };
+        } else {
+          throw new Error("No hay datos para procesar");
+        }
       } else {
-        throw new Error("No hay datos para procesar");
+        return { status: 'error', message: 'Indicadores encontrados en la base de datos' };
       }
     } else if (procedure === "GET") {
       const { symbol, startDate, endDate } = req.req.query;
@@ -146,29 +160,42 @@ async function getIndicadors(req, res) {
 async function checkAndCreateSymbol(symbol, interval, name = symbol) {
   const apiUrl = 'http://localhost:4004/api/inv/priceshistorycrud';
 
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
   try {
     const getUrl = `${apiUrl}?procedure=GET&symbol=${symbol}`;
     const getResponse = await axios.get(getUrl);
+    const existingItem = getResponse.data?.value?.[0];
 
-    const existingItem = getResponse.data?.value?.[0]; // ⚠️ OData devuelve un array en 'value'
-
-    if (existingItem && existingItem.symbol === symbol) {
+    if (existingItem && existingItem.symbol === symbol && existingItem.data?.length > 0) {
       console.log(`✅ El símbolo ${symbol} ya está en la base de datos.`);
       return existingItem;
     }
 
-    console.log(`🔍 El símbolo ${symbol} no existe. Intentando crearlo...`);
+    console.log(`🔍 El símbolo ${symbol} no existe o no tiene datos. Intentando crearlo...`);
 
     const postUrl = `${apiUrl}?procedure=POST&symbol=${symbol}&interval=${interval}&name=${encodeURIComponent(name)}`;
-    const postResponse = await axios.get(postUrl); // o axios.post si lo adaptas
+    await axios.get(postUrl); // Dispara creación
 
-    console.log(`✅ Símbolo ${symbol} creado exitosamente.`);
-    return postResponse.data;
+    // 🔁 Reintentar hasta que tenga data real
+    for (let i = 0; i < 5; i++) {
+      await wait(2000); // Esperar 2 segundos
+      const retryResponse = await axios.get(getUrl);
+      const retryItem = retryResponse.data?.value?.[0];
+      if (retryItem?.data?.length > 0) {
+        console.log(`✅ Datos disponibles para ${symbol} tras ${i + 1} reintento(s).`);
+        return retryItem;
+      }
+    }
+
+    throw new Error(`Datos no disponibles para ${symbol} tras varios intentos.`);
 
   } catch (error) {
     console.error(`❌ Error al verificar o crear el símbolo ${symbol}:`, error.message);
+    return null;
   }
 }
+
 
 
 
