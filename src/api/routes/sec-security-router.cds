@@ -38,31 +38,31 @@ service SecurityRoute @(path: '/api/sec') {
     @path            : 'valuesCRUD'
     action valuesCRUD() returns array of values;
 
-    //----------LABELS----------------------
+    // //----------LABELS----------------------
 
-    @Core.Description: 'get-all-labels'
-    @path            : 'getall'
-    function getall()     returns array of labels;
+    // @Core.Description: 'get-all-labels'
+    // @path            : 'getall'
+    // function getall()     returns array of labels;
 
-    @Core.Description: 'new Label'
-    @path            : 'newLabel'
-    action newLabel(values:labels)  
-    returns array of labels;
+    // @Core.Description: 'new Label'
+    // @path            : 'newLabel'
+    // action newLabel(values:labels)  
+    // returns array of labels;
 
-    @Core.Description: 'DELETE Label'
-    @path            : 'deleteLabel'
-    action deleteLabel()  
-    returns array of labels;
+    // @Core.Description: 'DELETE Label'
+    // @path            : 'deleteLabel'
+    // action deleteLabel()  
+    // returns array of labels;
 
-    @Core.Description: 'UPDATE Label'
-    @path            : 'updateLabel'
-    action updateLabel(values:labels)  
-    returns array of labels;
+    // @Core.Description: 'UPDATE Label'
+    // @path            : 'updateLabel'
+    // action updateLabel(values:labels)  
+    // returns array of labels;
 
-    @Core.Description: 'LOGICAL Label'
-    @path            : 'logicalLabel'
-    action logicalLabel()
-    returns array of labels;
+    // @Core.Description: 'LOGICAL Label'
+    // @path            : 'logicalLabel'
+    // action logicalLabel()
+    // returns array of labels;
     // GET ALL CATALOGS
     // http://localhost:4004/api/sec/catalogsR?procedure=get&type=all
 
@@ -80,4 +80,9 @@ service SecurityRoute @(path: '/api/sec') {
     @path: 'usersCRUD'
         action usersCRUD()
         returns array of users;
+
+    @Core.Description: 'crud-for-labels'
+    @path: 'labelsCRUD'
+        action labelsCRUD()
+        returns array of labels;
 }

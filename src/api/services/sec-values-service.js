@@ -2,12 +2,12 @@ const ValueSchema = require('../models/mongodb/ztvalues');
 
 async function ValuesCRUD(req) {
   try {
-    const { procedure, LabelID, ValueID } = req.req.query;
+    const { procedure, LabelId, ValueId } = req.req.query;
     const currentUser = req.req?.query?.RegUser || 'SYSTEM';
     const body = req.req.body;
     let result;
 
-    console.log('PROCEDURE:', procedure, 'LABELID:', LabelID, 'VALUEID:', ValueID);
+    console.log('PROCEDURE:', procedure, 'LABELID:', LabelId, 'VALUEID:', ValueId);
 
     switch (procedure) {
       // POST DE VALUES
@@ -44,13 +44,13 @@ async function ValuesCRUD(req) {
           throw new Error('No se enviaron datos para actualizar');
         }
 
-        if (!LabelID || !ValueID) {
+        if (!LabelId || !ValueId) {
           throw new Error('Se requieren LABELID y VALUEID para actualizar');
         }
 
-        const value = await ValueSchema.findOne({ LABELID: LabelID, VALUEID: ValueID });
+        const value = await ValueSchema.findOne({ LABELID: LabelId, VALUEID: ValueId });
         if (!value) {
-          throw new Error(`No se encontró el valor con LABELID ${LabelID} y VALUEID ${ValueID}`);
+          throw new Error(`No se encontró el valor con LABELID ${LabelId} y VALUEID ${ValueId}`);
         }
 
         if (!value.DETAIL_ROW) {
@@ -82,24 +82,24 @@ async function ValuesCRUD(req) {
       // ACTIVAR O DESACTIVAR
       case 'desactived':
       case 'actived': {
-        if (!LabelID || !ValueID) {
+        if (!LabelId || !ValueId) {
           throw new Error('Se requieren LABELID y VALUEID para activar o desactivar');
         }
-        result = await deleteAndActivedLogic(procedure, LabelID, ValueID, currentUser);
+        result = await deleteAndActivedLogic(procedure, LabelId, ValueId, currentUser);
         break;
       }
 
       // ELIMINAR FISICAMENTE
       case 'delete': {
-        if (!LabelID || !ValueID) {
+        if (!LabelId || !ValueId) {
           throw new Error('Se requieren LABELID y VALUEID para eliminar');
         }
 
-        const value = await ValueSchema.findOne({LABELID: LabelID, VALUEID: ValueID});
+        const value = await ValueSchema.findOne({LABELID: LabelId, VALUEID: ValueId});
 
         if (!value) throw new Error("El valor no existe");
 
-        const deleted = await ValueSchema.findOneAndDelete({ LABELID: LabelID, VALUEID: ValueID });
+        const deleted = await ValueSchema.findOneAndDelete({ LABELID: LabelId, VALUEID: ValueId });
 
         if(deleted.deletedCount === 0){
             throw new Error("No se pudo eliminar el valor especificado");
@@ -112,11 +112,11 @@ async function ValuesCRUD(req) {
 
       // OBTENER VALUES
       case 'get': {
-        if (LabelID) {
-          if (ValueID) {
-            result = await ValueSchema.find({ LABELID: LabelID, VALUEID: ValueID }).lean();
+        if (LabelId) {
+          if (ValueId) {
+            result = await ValueSchema.find({ LABELID: LabelId, VALUEID: ValueId }).lean();
           } else {
-            result = await ValueSchema.find({ LABELID: LabelID }).lean();
+            result = await ValueSchema.find({ LABELID: LabelId }).lean();
           }
         } else {
           result = await ValueSchema.find().lean();
@@ -165,12 +165,12 @@ async function ValuesCRUD(req) {
 // }
 
 
-async function deleteAndActivedLogic(procedure, LabelID, ValueID, currentUser) {
+async function deleteAndActivedLogic(procedure, LabelId, ValueId, currentUser) {
   try {
-    const value = await ValueSchema.findOne({ LABELID: LabelID, VALUEID: ValueID });
+    const value = await ValueSchema.findOne({ LABELID: LabelId, VALUEID: ValueId });
 
     if (!value) {
-      throw new Error(`No se encontró el valor con LABELID ${LabelID} y VALUEID ${ValueID}`);
+      throw new Error(`No se encontró el valor con LABELID ${LabelId} y VALUEID ${ValueId}`);
     }
 
     // Definir los valores según el procedimiento

@@ -1,97 +1,151 @@
-const ztlabels = require("../models/mongodb/ztlabels");
+const LabelSchema = require("../models/mongodb/ztlabels");
 
-async function GetAllLabels(req) {
+async function LabelsCRUD(req) {
   try {
-    let labels;
-    labels = await ztlabels.find().lean();
-    return labels;
-  } catch (error) {
-    return error;
-  } finally {
-  }
-}
+    const { procedure, type, LabelId} = req.req.query;
+    const currentUser = req.req?.query?.RegUser || 'SYSTEM';
+    const body = req.data?.labels || req.data;
+    let result;
 
-async function PostLabel(req) {
-  //NUEVO
-  try {
-    const newlabel = req.data.values; // recupeaar los datos de la nueva label en el parametro req
-    if (!newlabel) {
-      // si no se reciben datos, retornar un error
-      return new Error("No se reciben datos");
+    switch (procedure) {
+      // GET ALL
+      case 'get':
+        if(LabelId){
+            const label = await LabelSchema.findOne({LABELID: LabelId}).lean();
+            if (!label){return {mensaje: "No se encontró ningún catalogo con este LABELID"}}
+            result = label;
+        }else {
+          const labels = await LabelSchema.find().lean();
+          if (!labels){return {mensaje: "Sin datos"}}          
+          result = await LabelSchema.find().lean();
+        }
+        break;
+
+      // POST
+      case 'post':
+        if (!body) throw new Error("No se reciben datos");
+        const newlabel = body;
+        if (Array.isArray(newlabel)) {
+          // Si es un arreglo, mapear y agregar el _reguser a cada objeto
+          const inserted = [];
+          for (const doc of newlabel) {
+            const instance = new LabelSchema(doc);
+            instance._reguser = currentUser;
+            const saved = await instance.save();
+            inserted.push(saved.toObject());
+          }
+          result = inserted;
+        } else {
+          const instance = new LabelSchema(newlabel);
+          instance._reguser = currentUser; // <<--- AQUÍ
+
+          const validlabel = await instance.save();
+          result = validlabel.toObject();
+        }
+        break;
+
+      // PUT (actualizar)
+      case 'put':
+        const cambios = body;
+
+        if (!cambios || typeof cambios !== 'object') {
+          throw new Error('No se enviaron datos para actualizar');
+        }
+
+        if (!LabelId) {
+          throw new Error('Se requieren LABELID para actualizar');
+        }
+
+        const label = await LabelSchema.findOne({ LABELID: LabelId});
+        if (!label) {
+          throw new Error(`No se encontró el catalogo con LABELID ${LabelId}`);
+        }
+
+        if (!label.DETAIL_ROW) {
+          label.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        }
+
+        if (Array.isArray(label.DETAIL_ROW.DETAIL_ROW_REG)) {
+          label.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+            if (reg.CURRENT) reg.CURRENT = false;
+          });
+        } else {
+          label.DETAIL_ROW.DETAIL_ROW_REG = [];
+        }
+
+        const now = new Date();
+        label.DETAIL_ROW.DETAIL_ROW_REG.push({
+          CURRENT: true,
+          REGDATE: now,
+          REGTIME: now,
+          REGUSER: currentUser
+        });
+
+        Object.assign(label, cambios);
+        const updated = await label.save();
+        result = updated.toObject();
+        break;
+
+      // DELETE físico y logico
+      case 'delete':
+        switch (type){
+          // LOGICO
+          case 'logic':
+            if (!LabelId) throw new Error("Falta labelID");
+            const label = await LabelSchema.findOne({ LABELID: LabelId});
+
+            if (!label) {
+              throw new Error(`No se encontró el catalogo con LABELID ${LabelId}`);
+            }
+
+            label.DETAIL_ROW.ACTIVED = false;
+            label.DETAIL_ROW.DELETED = true;
+
+            // Desactivar registro actual
+            if (Array.isArray(label.DETAIL_ROW.DETAIL_ROW_REG)) {
+              label.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+                if (reg.CURRENT) reg.CURRENT = false;
+              });
+            } else {
+              label.DETAIL_ROW.DETAIL_ROW_REG = [];
+            }
+
+            // Agregar nuevo registro de auditoría
+            const now = new Date();
+            label.DETAIL_ROW.DETAIL_ROW_REG.push({
+              CURRENT: true,
+              REGDATE: now,
+              REGTIME: now,
+              REGUSER: currentUser
+            });
+
+            // Guardar documento actualizado
+            const updated = await label.save();
+            result = updated.toObject();
+            break;
+
+          // FISICO
+          case 'hard':
+            const hardDeleted = await LabelSchema.deleteOne({ LABELID: LabelId });
+            if (hardDeleted.deletedCount === 0) {
+              throw new Error('No existe el catalogo especificado.');
+            }
+            result = { message: 'Catalogo eliminado.' };
+            break;
+
+          default:
+            throw new Error('Tipo inválido en DELETE');
+        }
+      break;
+      default:
+        throw new Error("Parámetros inválidos o incompletos");
     }
 
-    const result = await ztlabels.insertOne(newlabel); // insertar la nueva label en la base de datos
-    return JSON.parse(JSON.stringify(result)); // retornar el resultado de la insercion, en formato JSON
+    return JSON.parse(JSON.stringify(result));
   } catch (error) {
-    return error;
+    console.error("Error en LabelsCRUD:", error);
+    return { error: true, message: error.message };
   }
 }
 
-async function DeleteLabel(req) {
-  try {
-    const id = req.data._id; // recupear el id de la label a eliminar del parametro req
-
-    if (!id) {
-      // si no se recibe el id, retornar un error
-      return new Error("No se recibe id");
-    }
-
-    const result = await ztlabels.deleteOne({ _id: id }); // eliminar la label en la base de datos
-    return JSON.parse(JSON.stringify(result)); // retornar el resultado de la eliminacion, en formato JSON
-  } catch (error) {
-    return error;
-  }
-}
-
-async function PutLabel(req) {
-  //UPDATE
-  try {
-    const label = req.data.values; // recupeaar los datos nuevos de la label en el parametro req
-    const id = label._id; // identificamos el id ya existente de la label a actualizar
-
-    if (!label || !id) {
-      // si no se reciben datos, retornar un error
-      return new Error("No se reciben datos");
-    }
-    delete label._id; //borramos el _id de la label a actualizar, de la constante label
-
-    const result = await ztlabels.updateOne(
-      { _id: id }, //enviamos el id de la label a actualizar
-      { $set: label } // y los datos nuevos de la label
-    ); // actualizar la label en la base de datos
-
-    return JSON.parse(JSON.stringify(result)); // retornar el resultado de la actualizacion, en formato JSON
-  } catch (error) {
-    return error;
-  }
-}
-
-async function LogicalLabel(req) {
-  const { status, labelID } = req.req.query;
-
-  let actived = true;
-  let deleted = false;
-  if (status && status === "delete") {
-    actived = false;
-    deleted = true;
-  }
-  const deleteLogic = await ztlabels.findOneAndUpdate(
-    {
-      LABELID: labelID,
-    },
-    {
-      "DETAIL_ROW.ACTIVED": actived,
-      "DETAIL_ROW.DELETED": deleted,
-    },
-    { new: true }
-  );
-  return (result = deleteLogic.toObject());
-}
-
-module.exports = {
-  GetAllLabels,
-  PostLabel,
-  DeleteLabel,
-  PutLabel,
-  LogicalLabel
-};
+module.exports = { LabelsCRUD };

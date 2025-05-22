@@ -6,7 +6,7 @@ const RolesInfoUsers = require('../models/mongodb/getRolesUsersModel');
 async function RolesCRUD(req) {
   try {
     const { procedure, type, roleid } = req.req.query;
-    const currentUser = req.req?.query?.USERID || 'SYSTEM';
+    const currentUser = req.req?.query?.RegUser || 'SYSTEM';
     const body = req.req.body;
     let result;
 
@@ -28,11 +28,12 @@ async function RolesCRUD(req) {
     };
 
     switch (procedure) {
+
+      // OBTENER ROLES
       case 'get':
         switch (type) {
           case 'all':
             result = await RolesInfoSchema.find().lean();
-            console.log('ROLES FIND RESULT:', result);  // Asegúrate que realmente tenga data
             break;
           case 'users':
             const filter = roleid ? { ROLEID: roleid } : {};
@@ -42,13 +43,19 @@ async function RolesCRUD(req) {
             throw new Error('Tipo inválido en GET');
         }
         break;
-
+      
+      // INSERTAR ROL
       case 'post':
         await validarProcessIds(body.PRIVILEGES);
-        const nuevoRol = await RoleSchema.create(body);
+
+        const instance = new RoleSchema(body);
+        instance._reguser = currentUser;
+
+        const nuevoRol = await instance.save();
         result = nuevoRol.toObject();
         break;
 
+      // ACTUALIZAR ROL
       case 'put':
         if (!roleid) throw new Error('Parametro faltante (RoleID)');
         const updateData = body;
@@ -84,6 +91,7 @@ async function RolesCRUD(req) {
         });
 
         Object.assign(roleToUpdate, updateData);
+        
         const updatedRole = await roleToUpdate.save();
         result = updatedRole.toObject();
         break;
