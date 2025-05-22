@@ -31,4 +31,31 @@ const ValueSchema = new mongoose.Schema({
   versionKey: false         
 });
 
-module.exports = mongoose.model('ZTEVALUES', ValueSchema);
+// Middleware automático antes de guardar
+ValueSchema.pre('save', function (next) {
+        const now = new Date();
+
+        if (!this.DETAIL_ROW) this.DETAIL_ROW = {};
+
+        if (this.DETAIL_ROW.ACTIVED === undefined) {
+                this.DETAIL_ROW.ACTIVED = true;
+        }
+        if (this.DETAIL_ROW.DELETED === undefined) {
+                this.DETAIL_ROW.DELETED = false;
+        }
+
+        if (!this.DETAIL_ROW.DETAIL_ROW_REG || this.DETAIL_ROW.DETAIL_ROW_REG.length === 0) {
+                this.DETAIL_ROW.DETAIL_ROW_REG = [
+                        {
+                                CURRENT: true,
+                                REGDATE: now,
+                                REGTIME: now,
+                                REGUSER: this._reguser || 'SYSTEM'
+                        }
+                ];
+        }
+
+        next();
+});
+
+module.exports = mongoose.model('ZTEVALUES', ValueSchema, 'ZTEVALUES');

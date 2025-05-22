@@ -40,6 +40,8 @@ async function UsersCRUD(req) {
                     res = GetAllUsers();
                 }else if(type === 'one'){
                     res = GetOneUser(userid);
+                }else{
+                    throw new Error("Coloca un tipo de búsqueda válido (all o one)");
                 }
                 break;
             case 'post':
@@ -51,7 +53,7 @@ async function UsersCRUD(req) {
                 break;
             case 'delete':
                 if(type === 'logic'){
-                    res = LogDelete(userid);
+                    res = LogDelete(userid, req);
                 }else if(type === 'hard'){
                     res = HardDelete(userid);
                 }
@@ -85,8 +87,6 @@ async function GetAllUsers() {
                 ROLEID: roleRef.ROLEID,
                 error: "Rol no encontrado"
                 };
-                
-
             }));
 
             return {
@@ -143,6 +143,7 @@ async function GetOneUser(userid) {
 
 async function PostUser(req) {
     try {
+        const currentUser = req.req?.query?.RegUser;
         const newUser = req.req.body;
         console.log("Usuario recibido: ",newUser);
         console.log("Entra al Metodo del servicio de post");
@@ -154,18 +155,23 @@ async function PostUser(req) {
         newUser.ROLES = rol;
         console.log("CAMBIOS 2:",newUser);
 
-        const createdUser = new UsersSchema(newUser);
+        const instance = new UsersSchema(newUser);
+        instance._reguser = currentUser;
 
-        await createdUser.save();
+        const validUser = await instance.save();
 
-        return createdUser.toObject();
+        await validUser.save();
+
+        return validUser.toObject();
     } catch (error) {
         return error;
     }
+
 }
 
 async function UpdateUser(req,userid){
     try{
+        const currentUser = req.req?.query?.RegUser || 'SYSTEM';
         const cambios = req.req.body;
         
         // Buscar usuario actual
@@ -194,7 +200,6 @@ async function UpdateUser(req,userid){
         }
 
         const now = new Date();
-        const currentUser = req.user?.USERID || 'SYSTEM';
 
         if (Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
             user.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
@@ -225,6 +230,8 @@ async function UpdateUser(req,userid){
 
 async function LogDelete(userid, req) {
   try {
+    const currentUser = req.req?.query?.RegUser || 'SYSTEM';
+
     // Buscar usuario actual
     const user = await UsersSchema.findOne({ USERID: userid });
 
@@ -235,7 +242,6 @@ async function LogDelete(userid, req) {
     }
 
     const now = new Date();
-    const currentUser = req?.user?.USERID || 'SYSTEM';
 
     if (Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
       user.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {

@@ -2,131 +2,222 @@ const ValueSchema = require('../models/mongodb/ztvalues');
 
 async function ValuesCRUD(req) {
   try {
-    const { procedure, labelID, ValueID} = req.req.query;
-    console.log('PROCEDURE:', procedure,'LABELID:',labelID, 'VALUEID:', ValueID);
-
+    const { procedure, LabelID, ValueID } = req.req.query;
+    const currentUser = req.req?.query?.RegUser || 'SYSTEM';
+    const body = req.req.body;
     let result;
 
-    if (procedure === 'post') {
-        console.log('POST procedure');
-        const newValue = req.req.query;
-        const labelprocess = newValue.LABELID;
-        if (labelprocess==="IdViews") {
-            result = postValidation("IdApplications",newValue);
-        }
-        if (labelprocess==="IdProcesses"){
-            result = postValidation("IdViews",newValue);
-        }
-        if(labelprocess==="IdApplications" || labelprocess==="IdPrivileges"){
-            const validValue = await ValueSchema.create(newValue); 
-            result = validValue.toObject();
-        }
-    }
-    
-    if (procedure === 'put') {    
-      const updateValue = req.req.query;
-      let ValueOriginal = await ValueSchema.findOne({
-        VALUEID: updateValue.VALUEID,
-        LABELID: updateValue.LABELID
-      }).lean();
+    console.log('PROCEDURE:', procedure, 'LABELID:', LabelID, 'VALUEID:', ValueID);
 
-      if(ValueOriginal.VALUEPAID===updateValue.VALUEPAID){
-        result = Update(updateValue);
-      }else{
-        if(ValueOriginal.LABELID==="IdViews"){
-          result=putValidation("IdApplications",updateValue);
+    switch (procedure) {
+      // POST DE VALUES
+      case 'post': {
+        console.log('POST procedure');
+        const newValue = body;
+
+        if (Array.isArray(newValue)) {
+          // Si es un arreglo, mapear y agregar el _reguser a cada objeto
+          const inserted = [];
+          for (const doc of newValue) {
+            const instance = new ValueSchema(doc);
+            instance._reguser = currentUser;
+            const saved = await instance.save();
+            inserted.push(saved.toObject());
+          }
+          result = inserted;
+        } else {
+          const instance = new ValueSchema(newValue);
+          instance._reguser = currentUser; // <<--- AQUÍ
+
+          const validValue = await instance.save();
+          result = validValue.toObject();
         }
-        if(ValueOriginal.LABELID==="IdProcesses"){
-          result=putValidation("IdViews",updateValue);
-        }else{
-          result = Update(updateValue);
-        }
+        break;
       }
 
-    }
+      // PUT DE VALUES
+      case 'put': {
+        console.log('PUT procedure');
+        const cambios = body;
 
-    if ((procedure === 'delete' || procedure === 'actived') && labelID!==null && ValueID!==null) {
-      result=deleteAndActivedLogic(procedure,labelID,ValueID);
-    }
+        if (!cambios || typeof cambios !== 'object') {
+          throw new Error('No se enviaron datos para actualizar');
+        }
 
-    if (procedure === 'deletePermanent' && labelID!==null && ValueID!==null) {
-      const deletePermanent = await ValueSchema.findOneAndDelete({
-        LABELID: labelID,
-        VALUEID: ValueID
-      });
-      result = deletePermanent.toObject();
-    }
+        if (!LabelID || !ValueID) {
+          throw new Error('Se requieren LABELID y VALUEID para actualizar');
+        }
 
-    if (procedure === 'get' && labelID !== null) {
-      result = await ValueSchema.find({LABELID: labelID}).lean();
+        const value = await ValueSchema.findOne({ LABELID: LabelID, VALUEID: ValueID });
+        if (!value) {
+          throw new Error(`No se encontró el valor con LABELID ${LabelID} y VALUEID ${ValueID}`);
+        }
+
+        if (!value.DETAIL_ROW) {
+          value.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        }
+
+        if (Array.isArray(value.DETAIL_ROW.DETAIL_ROW_REG)) {
+          value.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+            if (reg.CURRENT) reg.CURRENT = false;
+          });
+        } else {
+          value.DETAIL_ROW.DETAIL_ROW_REG = [];
+        }
+
+        const now = new Date();
+        value.DETAIL_ROW.DETAIL_ROW_REG.push({
+          CURRENT: true,
+          REGDATE: now,
+          REGTIME: now,
+          REGUSER: currentUser
+        });
+
+        Object.assign(value, cambios);
+        const updated = await value.save();
+        result = updated.toObject();
+        break;
+      }
+      
+      // ACTIVAR O DESACTIVAR
+      case 'desactived':
+      case 'actived': {
+        if (!LabelID || !ValueID) {
+          throw new Error('Se requieren LABELID y VALUEID para activar o desactivar');
+        }
+        result = await deleteAndActivedLogic(procedure, LabelID, ValueID, currentUser);
+        break;
+      }
+
+      // ELIMINAR FISICAMENTE
+      case 'delete': {
+        if (!LabelID || !ValueID) {
+          throw new Error('Se requieren LABELID y VALUEID para eliminar');
+        }
+
+        const value = await ValueSchema.findOne({LABELID: LabelID, VALUEID: ValueID});
+
+        if (!value) throw new Error("El valor no existe");
+
+        const deleted = await ValueSchema.findOneAndDelete({ LABELID: LabelID, VALUEID: ValueID });
+
+        if(deleted.deletedCount === 0){
+            throw new Error("No se pudo eliminar el valor especificado");
+        }
+
+        result = {mensaje:'Valor eliminado con exito y para siempre'};
+
+        break;
+      }
+
+      // OBTENER VALUES
+      case 'get': {
+        if (LabelID) {
+          if (ValueID) {
+            result = await ValueSchema.find({ LABELID: LabelID, VALUEID: ValueID }).lean();
+          } else {
+            result = await ValueSchema.find({ LABELID: LabelID }).lean();
+          }
+        } else {
+          result = await ValueSchema.find().lean();
+        }
+        break;
+      }
+
+      default:
+        throw new Error(`Procedimiento '${procedure}' no soportado`);
     }
 
     return result;
+
   } catch (error) {
     console.error('Error en ValuesCRUD:', error);
     return { error: true, message: error.message };
   }
 }
 
-async function postValidation(type,newValue) {
-    const processIds = (newValue.VALUEPAID.replace(type+"-", '').trim());
-            let validacion = await ValueSchema.findOne({
-                VALUEID: processIds,
-                LABELID: type
-              }).lean();
-            if (validacion===null){
-                throw new Error(`El siguiente ${type}  no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
-            }else{
-                const validValue = await ValueSchema.create(newValue); 
-                result = validValue.toObject();
-            }
-            return result;
-}
+// async function postValidation(type,newValue) {
+//     const processIds = (newValue.VALUEPAID.replace(type+"-", '').trim());
+//             let validacion = await ValueSchema.findOne({
+//                 VALUEID: processIds,
+//                 LABELID: type
+//               }).lean();
+//             if (validacion===null){
+//                 throw new Error(`El siguiente ${type}  no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
+//             }else{
+//                 const validValue = await ValueSchema.create(newValue); 
+//                 result = validValue.toObject();
+//             }
+//             return result;
+// }
 
-async function putValidation(type,Value) {
-  const processIds = (Value.VALUEPAID.replace(type+"-", '').trim());
-          let validacion = await ValueSchema.findOne({
-              VALUEID: processIds,
-              LABELID: type
-            }).lean();
-          if (validacion===null){
-            throw new Error(`El siguiente valor de ${type} no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
-          }else{
-            return result = Update(Value);
-          }
-}
+// async function putValidation(type,Value) {
+//   const processIds = (Value.VALUEPAID.replace(type+"-", '').trim());
+//           let validacion = await ValueSchema.findOne({
+//               VALUEID: processIds,
+//               LABELID: type
+//             }).lean();
+//           if (validacion===null){
+//             throw new Error(`El siguiente valor de ${type} no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
+//           }else{
+//             return result = Update(Value);
+//           }
+// }
 
-async function Update(updateValue){
-  const updateValidValue = await ValueSchema.findOneAndUpdate(
-    {
-      LABELID: updateValue.LABELID,
-      VALUEID: updateValue.VALUEID
-    },
-    updateValue, // datos a actualizar
-    { new: true } // que devuelva el documento actualizado
-  );
-    return result = updateValidValue.toObject(); 
-}
 
-async function deleteAndActivedLogic(procedure,labelID,ValueID){
-  let actived = true;
-  let deleted = false;
-  if (procedure === 'delete') {
-    actived = false;
-    deleted = true;
+async function deleteAndActivedLogic(procedure, LabelID, ValueID, currentUser) {
+  try {
+    const value = await ValueSchema.findOne({ LABELID: LabelID, VALUEID: ValueID });
+
+    if (!value) {
+      throw new Error(`No se encontró el valor con LABELID ${LabelID} y VALUEID ${ValueID}`);
+    }
+
+    // Definir los valores según el procedimiento
+    let actived = true;
+    let deleted = false;
+    if (procedure === 'desactived') {
+      actived = false;
+      deleted = true;
+    }
+
+    // Actualizar valores principales
+    value.DETAIL_ROW = value.DETAIL_ROW || {
+      ACTIVED: true,
+      DELETED: false,
+      DETAIL_ROW_REG: []
+    };
+
+    value.DETAIL_ROW.ACTIVED = actived;
+    value.DETAIL_ROW.DELETED = deleted;
+
+    // Desactivar registro actual
+    if (Array.isArray(value.DETAIL_ROW.DETAIL_ROW_REG)) {
+      value.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+        if (reg.CURRENT) reg.CURRENT = false;
+      });
+    } else {
+      value.DETAIL_ROW.DETAIL_ROW_REG = [];
+    }
+
+    // Agregar nuevo registro de auditoría
+    const now = new Date();
+    value.DETAIL_ROW.DETAIL_ROW_REG.push({
+      CURRENT: true,
+      REGDATE: now,
+      REGTIME: now,
+      REGUSER: currentUser
+    });
+
+    // Guardar documento actualizado
+    const updated = await value.save();
+    return updated.toObject();
+
+  } catch (error) {
+    console.error('Error en deleteAndActivedLogic:', error);
+    return { error: true, message: error.message };
   }
-  const deleteLogic = await ValueSchema.findOneAndUpdate(
-    {
-      LABELID: labelID,
-      VALUEID: ValueID
-    },
-    {
-      'DETAIL_ROW.ACTIVED': actived,
-      'DETAIL_ROW.DELETED': deleted
-    },
-    { new: true }
-  );
-  return result = deleteLogic.toObject();
 }
+
 
 module.exports = { ValuesCRUD };

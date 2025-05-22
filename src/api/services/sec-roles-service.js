@@ -6,179 +6,140 @@ const RolesInfoUsers = require('../models/mongodb/getRolesUsersModel');
 async function RolesCRUD(req) {
   try {
     const { procedure, type, roleid } = req.req.query;
-    console.log('PROCEDURE:', procedure, 'TYPE:', type);
-
+    const currentUser = req.req?.query?.USERID || 'SYSTEM';
+    const body = req.req.body;
     let result;
 
-
-    //FUNCION PARA VALDIAR PROCESSID
     const validarProcessIds = async (privilegios = []) => {
       const processIds = (privilegios || []).map(p =>
         p.PROCESSID.replace('IdProcess-', '').trim()
       );
 
       const procesosValidos = await ValueSchema.find({
-        LABELID: "IdProcesses",
+        LABELID: 'IdProcesses',
         VALUEID: { $in: processIds }
       }).lean();
 
       if (procesosValidos.length !== processIds.length) {
         const encontrados = procesosValidos.map(p => p.VALUEID);
         const faltantes = processIds.filter(id => !encontrados.includes(id));
-
         throw new Error(`No existe el siguiente proceso en la Base de Datos: ${faltantes.join(', ')}`);
       }
     };
 
+    switch (procedure) {
+      case 'get':
+        switch (type) {
+          case 'all':
+            result = await RolesInfoSchema.find().lean();
+            console.log('ROLES FIND RESULT:', result);  // Asegúrate que realmente tenga data
+            break;
+          case 'users':
+            const filter = roleid ? { ROLEID: roleid } : {};
+            result = await RolesInfoUsers.find(filter).lean();
+            break;
+          default:
+            throw new Error('Tipo inválido en GET');
+        }
+        break;
 
+      case 'post':
+        await validarProcessIds(body.PRIVILEGES);
+        const nuevoRol = await RoleSchema.create(body);
+        result = nuevoRol.toObject();
+        break;
 
-    // GET ALL ------------------------------------
-    if (procedure === 'get' && type === 'all') {
-      result = await RolesInfoSchema.find().lean();
-
-
-
-      // GET CON USERS ----------------------------------
-    } else if (procedure === 'get' && type === 'users') {
-      const filter = {};
-      if (roleid) {
-        filter.ROLEID = roleid;
-      }
-
-      result = await RolesInfoUsers.find(filter).lean()
-
-
-      // POST -------------------------------------
-    } else if (req.req.query.procedure === 'post') {
-      
-      const nuevoRol = req.req.body;
-      await validarProcessIds(nuevoRol.PRIVILEGES);
-
-      const nuevoRolito = await RoleSchema.create(nuevoRol);
-      result = nuevoRolito.toObject();
-
-        
-
-
-      // DELETE ----------------------------
-    } else if (procedure === 'delete') {
-      if (!roleid) throw new Error('Parametro faltante (RoleID)');
-
-
-      //DELETE LOGICO
-      if (type === 'logic') {
-
-        // Buscar rol actual
-        const role = await RoleSchema.findOne({ ROLEID: roleid });
-        if (!role) throw new Error('No se encontró ningún rol');
-
-        if (!role.DETAIL_ROW) {
-          role.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+      case 'put':
+        if (!roleid) throw new Error('Parametro faltante (RoleID)');
+        const updateData = body;
+        if (!updateData || Object.keys(updateData).length === 0) {
+          throw new Error('No se proporcionan campos para actualizar');
         }
 
-        const now = new Date();
-        const currentUser = req.req.query?.user?.USERID || 'SYSTEM';
+        const roleToUpdate = await RoleSchema.findOne({ ROLEID: roleid });
+        if (!roleToUpdate) throw new Error('El rol a actualizar no existe');
 
-        if (Array.isArray(role.DETAIL_ROW.DETAIL_ROW_REG)) {
-            role.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
-              if (reg.CURRENT) reg.CURRENT = false;
+        if (updateData.PRIVILEGES) {
+          await validarProcessIds(updateData.PRIVILEGES);
+        }
+
+        const nowPut = new Date();
+        if (!roleToUpdate.DETAIL_ROW) {
+          roleToUpdate.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        }
+
+        if (Array.isArray(roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG)) {
+          roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+            if (reg.CURRENT) reg.CURRENT = false;
           });
         } else {
-          role.DETAIL_ROW.DETAIL_ROW_REG = [];
+          roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG = [];
         }
 
-        // Marcar borrado lógico
-        role.DETAIL_ROW.ACTIVED = false;
-        role.DETAIL_ROW.DELETED = true;
-
-        // Agregar nuevo registro en DETAIL_ROW_REG
-        role.DETAIL_ROW.DETAIL_ROW_REG.push({
-            CURRENT: true,
-            REGDATE: now,
-            REGTIME: now,
-            REGUSER: currentUser
+        roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG.push({
+          CURRENT: true,
+          REGDATE: nowPut,
+          REGTIME: nowPut,
+          REGUSER: currentUser
         });
 
-        const updated = await role.save();
-        result = updated.toObject();
+        Object.assign(roleToUpdate, updateData);
+        const updatedRole = await roleToUpdate.save();
+        result = updatedRole.toObject();
+        break;
 
-        console.log('Rol desactivado');
+      case 'delete':
+        if (!roleid) throw new Error('Parametro faltante (RoleID)');
 
+        switch (type) {
+          case 'logic':
+            const roleToLogicDelete = await RoleSchema.findOne({ ROLEID: roleid });
+            if (!roleToLogicDelete) throw new Error('No se encontró ningún rol');
 
+            const nowDel = new Date();
+            if (!roleToLogicDelete.DETAIL_ROW) {
+              roleToLogicDelete.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+            }
 
-        //DELETE FISICO
-      } else if (type === 'hard') {
+            if (Array.isArray(roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG)) {
+              roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+                if (reg.CURRENT) reg.CURRENT = false;
+              });
+            } else {
+              roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG = [];
+            }
 
-        const deleted = await RoleSchema.deleteOne({ ROLEID: roleid });
+            roleToLogicDelete.DETAIL_ROW.ACTIVED = false;
+            roleToLogicDelete.DETAIL_ROW.DELETED = true;
+            roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG.push({
+              CURRENT: true,
+              REGDATE: nowDel,
+              REGTIME: nowDel,
+              REGUSER: currentUser
+            });
 
-        if (deleted.deletedCount === 0) {
-          throw new Error('No existe el rol especificado.');
+            const logicDeleted = await roleToLogicDelete.save();
+            result = logicDeleted.toObject();
+            break;
+
+          case 'hard':
+            const hardDeleted = await RoleSchema.deleteOne({ ROLEID: roleid });
+            if (hardDeleted.deletedCount === 0) {
+              throw new Error('No existe el rol especificado.');
+            }
+            result = { message: 'Rol eliminado.' };
+            break;
+
+          default:
+            throw new Error('Tipo inválido en DELETE');
         }
+        break;
 
-        result = { message: 'Rol eliminado.' };
-
-      }
-
-
-      //PUT ----------------------------------------------
-
-    } else if (procedure === 'put') {
-      if (!roleid) throw new Error('Parametro faltante (RoleID)');
-
-      const camposActualizar = req.req.body;
-
-      if (!camposActualizar || Object.keys(camposActualizar).length === 0) {
-        throw new Error('No se proporcionan campos para actualizar');
-      }
-
-      const role = await RoleSchema.findOne({ ROLEID: roleid });
-
-      if(!role) throw new Error('El rol a actualizar no existe');
-      
-      //SI HAY PRIVILEGIOS A ACTUALIZAR SE LLAMA LA FUNCION PARA VALIDAR ESA COSA
-      if (camposActualizar.PRIVILEGES) {
-        await validarProcessIds(camposActualizar.PRIVILEGES);
-      }
-
-      // Desactivar el registro CURRENT actual en DETAIL_ROW_REG
-      if (!role.DETAIL_ROW) {
-          role.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
-      }
-
-      const now = new Date();
-      const currentUser = req.req?.query?.USERID || 'SYSTEM';
-
-      if (Array.isArray(role.DETAIL_ROW.DETAIL_ROW_REG)) {
-          role.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
-              if (reg.CURRENT) reg.CURRENT = false;
-          });
-      } else {
-          role.DETAIL_ROW.DETAIL_ROW_REG = [];
-      }
-
-      // Agregar nuevo registro en DETAIL_ROW_REG
-      role.DETAIL_ROW.DETAIL_ROW_REG.push({
-          CURRENT: true,
-          REGDATE: now,
-          REGTIME: now,
-          REGUSER: currentUser
-      });
-
-      
-        // Aplicar cambios recibidos
-        Object.assign(role, camposActualizar);
-
-        const updated = await role.save();
-        result = updated.toObject();
-
-    } else {
-      console.log('No coincide ningún procedimiento');
-      throw new Error('Parámetros inválidos o incompletos');
+      default:
+        throw new Error('Parámetro "procedure" inválido o no especificado');
     }
 
-
-      return JSON.parse(JSON.stringify(result));
-
+    return JSON.parse(JSON.stringify(result));
   } catch (error) {
     console.error('Error en RolesCRUD:', error);
     return { error: true, message: error.message };

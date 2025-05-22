@@ -36,7 +36,7 @@ service SecurityRoute @(path: '/api/sec') {
 
     @Core.Description: 'CRUD de values'
     @path            : 'valuesCRUD'
-    function valuesCRUD() returns array of values;
+    action valuesCRUD() returns array of values;
 
     //----------LABELS----------------------
 
