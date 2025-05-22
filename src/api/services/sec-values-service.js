@@ -1,5 +1,11 @@
+// ===================================================
+// IMPORTACIÓN DEL MODELO DE MONGOOSE
+// ===================================================
 const ValueSchema = require('../models/mongodb/ztvalues');
 
+// ===================================================
+// FUNCIÓN PRINCIPAL: CRUD PARA VALUES
+// ===================================================
 async function ValuesCRUD(req) {
   try {
     const { procedure, LabelId, ValueId } = req.req.query;
@@ -10,7 +16,10 @@ async function ValuesCRUD(req) {
     console.log('PROCEDURE:', procedure, 'LABELID:', LabelId, 'VALUEID:', ValueId);
 
     switch (procedure) {
-      // POST DE VALUES
+      
+      // ===============================================
+      // POST: Insertar uno o varios valores
+      // ===============================================
       case 'post': {
         console.log('POST procedure');
         const newValue = body;
@@ -35,7 +44,9 @@ async function ValuesCRUD(req) {
         break;
       }
 
-      // PUT DE VALUES
+      // ===============================================
+      // ACTUALIZAR VALUE (PUT)
+      // ===============================================
       case 'put': {
         console.log('PUT procedure');
         const cambios = body;
@@ -79,7 +90,9 @@ async function ValuesCRUD(req) {
         break;
       }
       
-      // ACTIVAR O DESACTIVAR
+      // ===============================================
+      // ACTIVAR / DESACTIVAR VALUE (LÓGICO)
+      // ===============================================
       case 'desactived':
       case 'actived': {
         if (!LabelId || !ValueId) {
@@ -89,7 +102,9 @@ async function ValuesCRUD(req) {
         break;
       }
 
-      // ELIMINAR FISICAMENTE
+      // ===============================================
+      // ELIMINAR VALUE FÍSICAMENTE (DELETE)
+      // ===============================================
       case 'delete': {
         if (!LabelId || !ValueId) {
           throw new Error('Se requieren LABELID y VALUEID para eliminar');
@@ -110,11 +125,14 @@ async function ValuesCRUD(req) {
         break;
       }
 
-      // OBTENER VALUES
+      // ===============================================
+      // OBTENER VALUE(S) (GET)
+      // ===============================================
       case 'get': {
         if (LabelId) {
           if (ValueId) {
-            result = await ValueSchema.find({ LABELID: LabelId, VALUEID: ValueId }).lean();
+            result = await ValueSchema.findOne({ LABELID: LabelId, VALUEID: ValueId }).lean();
+            if(!result) {return {mensaje: "No se encontró el valor especificado"}}
           } else {
             result = await ValueSchema.find({ LABELID: LabelId }).lean();
           }
@@ -124,6 +142,9 @@ async function ValuesCRUD(req) {
         break;
       }
 
+      // ===============================================
+      // PROCEDIMIENTO NO SOPORTADO
+      // ===============================================
       default:
         throw new Error(`Procedimiento '${procedure}' no soportado`);
     }
@@ -165,6 +186,9 @@ async function ValuesCRUD(req) {
 // }
 
 
+// ===================================================
+// FUNCIÓN AUXILIAR PARA DESACTIVAR/ACTIVAR LOGICAMENTE UN VALUE
+// ===================================================
 async function deleteAndActivedLogic(procedure, LabelId, ValueId, currentUser) {
   try {
     const value = await ValueSchema.findOne({ LABELID: LabelId, VALUEID: ValueId });

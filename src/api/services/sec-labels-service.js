@@ -1,5 +1,11 @@
+// ===================================================
+// IMPORTACIÓN DEL MODELO DE MONGOOSE
+// ===================================================
 const LabelSchema = require("../models/mongodb/ztlabels");
 
+// ===================================================
+// FUNCIÓN PRINCIPAL: CRUD PARA LABELS
+// ===================================================
 async function LabelsCRUD(req) {
   try {
     const { procedure, type, LabelId} = req.req.query;
@@ -8,7 +14,9 @@ async function LabelsCRUD(req) {
     let result;
 
     switch (procedure) {
-      // GET ALL
+      // =====================================
+      // GET: Obtener todos o uno por LABELID
+      // =====================================
       case 'get':
         if(LabelId){
             const label = await LabelSchema.findOne({LABELID: LabelId}).lean();
@@ -17,11 +25,13 @@ async function LabelsCRUD(req) {
         }else {
           const labels = await LabelSchema.find().lean();
           if (!labels){return {mensaje: "Sin datos"}}          
-          result = await LabelSchema.find().lean();
+          result = labels;
         }
         break;
 
-      // POST
+      // ======================================
+      // POST: Insertar uno o varios catálogos
+      // ======================================
       case 'post':
         if (!body) throw new Error("No se reciben datos");
         const newlabel = body;
@@ -44,7 +54,9 @@ async function LabelsCRUD(req) {
         }
         break;
 
-      // PUT (actualizar)
+      // ======================================
+      // PUT: Actualizar un catálogo existente
+      // ======================================
       case 'put':
         const cambios = body;
 
@@ -86,7 +98,9 @@ async function LabelsCRUD(req) {
         result = updated.toObject();
         break;
 
-      // DELETE físico y logico
+      // =====================================
+      // DELETE: Eliminación lógica o física
+      // =====================================
       case 'delete':
         switch (type){
           // LOGICO
@@ -137,6 +151,10 @@ async function LabelsCRUD(req) {
             throw new Error('Tipo inválido en DELETE');
         }
       break;
+
+      // ===========================================================
+      // DEFAULT: Manejo de errores por procedimiento no reconocido
+      // ===========================================================
       default:
         throw new Error("Parámetros inválidos o incompletos");
     }

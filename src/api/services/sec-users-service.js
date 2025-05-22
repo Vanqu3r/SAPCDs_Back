@@ -1,23 +1,26 @@
+// ==============================
+// IMPORTACIÓN DE MODELOS
+// ==============================
 const UsersSchema = require('../models/mongodb/ztusers');
 const RoleSchema = require('../models/mongodb/ztroles');
-const usersComplete = require('../models/mongodb/usersComplete');
+const usersComplete = require('../models/mongodb/usersComplete'); // (No usado, puedes eliminarlo si no lo necesitas)
 
+// ==============================
+// FUNCIÓN AUXILIAR: validarRol
+// Valida que los roles proporcionados existan en la colección ZTROLES
+// ==============================
 const validarRol = async (roles) => {
     try {
         console.log("Entra a la funcion de validacion");
-        if(roles.length === 0){
-            return;
-        }
-        let rolesId = [];
-        roles.forEach( r => {
-            rolesId.push(r.ROLEID);
-        });
-        let validation = await RoleSchema.find( {ROLEID:{$in:rolesId}}).lean();
+        if (roles.length === 0) return;
 
-        if(validation.length !== roles.length ){
+        let rolesId = roles.map(r => r.ROLEID);
+        let validation = await RoleSchema.find({ ROLEID: { $in: rolesId } }).lean();
+
+        if (validation.length !== roles.length) {
             console.log('Alguno de los roles ingresados no existe');
-            return validation.toObject();
-        }else{
+            return validation.toObject(); // <- cuidado, .toObject() sobre array da error
+        } else {
             console.log("todos los roles existen");
             return roles;
         }
@@ -26,50 +29,58 @@ const validarRol = async (roles) => {
     }
 }
 
+// ==============================
+// FUNCIÓN PRINCIPAL: UsersCRUD
+// Enrutador de operaciones CRUD para usuarios según el procedimiento y tipo solicitados
+// ==============================
 async function UsersCRUD(req) {
     try {
-        const {procedure,type,userid} = req.req.query;
-        console.log('REQUEST: ',procedure,'TYPE:',type);
-
+        const { procedure, type, userid } = req.req.query;
+        console.log('REQUEST: ', procedure, 'TYPE:', type);
         let res;
 
-        //Validacion de la existencia de roles
         switch (procedure) {
             case 'get':
-                if(type === 'all'){
+                if (type === 'all') {
                     res = GetAllUsers();
-                }else if(type === 'one'){
+                } else if (type === 'one') {
                     res = GetOneUser(userid);
-                }else{
+                } else {
                     throw new Error("Coloca un tipo de búsqueda válido (all o one)");
                 }
                 break;
+
             case 'post':
-                console.log("Entra al case");
                 res = PostUser(req);
                 break;
-            case 'patch':
-                res = UpdateUser(req,userid);
+
+            case 'put':
+                res = UpdateUser(req, userid);
                 break;
+
             case 'delete':
-                if(type === 'logic'){
+                if (type === 'logic') {
                     res = LogDelete(userid, req);
-                }else if(type === 'hard'){
+                } else if (type === 'hard') {
                     res = HardDelete(userid);
                 }
                 break;
+
             default:
-                console.log('No coincide ningún procedimiento');
                 throw new Error('Parámetros inválidos o incompletos');
         }
 
         return res;
     } catch (error) {
-        console.error('Error en RolesCRUD:', error);
+        console.error('Error en UsersCRUD:', error);
         return { error: true, message: error.message };
     }
 }
 
+// ==============================
+// GET ALL USERS
+// Retorna todos los usuarios con sus roles enriquecidos (sin DETAIL_ROW)
+// ==============================
 async function GetAllUsers() {
     try {
         const allUsers = await UsersSchema.find().lean();
@@ -79,13 +90,13 @@ async function GetAllUsers() {
 
             const fullRoles = await Promise.all(userRoles.map(async roleRef => {
                 const role = await RoleSchema
-                .findOne({ ROLEID: roleRef.ROLEID })
-                .select("-DETAIL_ROW") // Excluir DETAIL_ROW
-                .lean();
+                    .findOne({ ROLEID: roleRef.ROLEID })
+                    .select("-DETAIL_ROW")
+                    .lean();
 
                 return role || {
-                ROLEID: roleRef.ROLEID,
-                error: "Rol no encontrado"
+                    ROLEID: roleRef.ROLEID,
+                    error: "Rol no encontrado"
                 };
             }));
 
@@ -95,38 +106,32 @@ async function GetAllUsers() {
             };
         }));
 
-            return enrichedUsers;
+        return enrichedUsers;
     } catch (error) {
         return error;
     }
 }
 
+// ==============================
+// GET ONE USER
+// Retorna un usuario por su USERID con sus roles enriquecidos
+// ==============================
 async function GetOneUser(userid) {
     try {
         const user = await UsersSchema.findOne({ USERID: userid }).lean();
-
-        if (!user) {
-            return { mensaje: 'No se encontró el usuario' };
-        }
+        if (!user) return { mensaje: 'No se encontró el usuario' };
 
         const userRoles = user.ROLES || [];
 
         const fullRoles = await Promise.all(userRoles.map(async roleRef => {
             const role = await RoleSchema
                 .findOne({ ROLEID: roleRef.ROLEID })
-                .select("-DETAIL_ROW") // Excluir DETAIL_ROW
+                .select("-DETAIL_ROW")
                 .lean();
 
-            if (!role) {
-                return {
-                    ROLEID: roleRef.ROLEID,
-                    error: "Rol no encontrado"
-                };
-            }
-
-            return {
-                ...roleRef,
-                ...role,
+            return role ? { ...roleRef, ...role } : {
+                ROLEID: roleRef.ROLEID,
+                error: "Rol no encontrado"
             };
         }));
 
@@ -140,76 +145,65 @@ async function GetOneUser(userid) {
     }
 }
 
-
+// ==============================
+// POST USER
+// Agrega un nuevo usuario validando los roles, guarda usuario y auditoría
+// ==============================
 async function PostUser(req) {
     try {
         const currentUser = req.req?.query?.RegUser;
         const newUser = req.req.body;
-        console.log("Usuario recibido: ",newUser);
-        console.log("Entra al Metodo del servicio de post");
-        if(!newUser){throw new Error('No envió los datos del usuario a agregar');}
-        //Validar los roles//Validar los roles
+
+        if (!newUser) throw new Error('No envió los datos del usuario a agregar');
+
         const rol = await validarRol(newUser.ROLES);
-        console.log("CAMBIOS 1:",newUser);
-        console.log("ROL: ",rol);
         newUser.ROLES = rol;
-        console.log("CAMBIOS 2:",newUser);
 
         const instance = new UsersSchema(newUser);
         instance._reguser = currentUser;
 
         const validUser = await instance.save();
-
-        await validUser.save();
-
         return validUser.toObject();
     } catch (error) {
         return error;
     }
-
 }
 
-async function UpdateUser(req,userid){
-    try{
+// ==============================
+// PUT USER
+// Actualiza un usuario existente, actualiza auditoría y roles
+// ==============================
+async function UpdateUser(req, userid) {
+    try {
         const currentUser = req.req?.query?.RegUser || 'SYSTEM';
         const cambios = req.req.body;
-        
-        // Buscar usuario actual
+
         const user = await UsersSchema.findOne({ USERID: userid });
+        if (!user) throw new Error('No se encontró ningún usuario');
+        if (!cambios || Object.keys(cambios).length === 0)
+            throw new Error('No se enviaron datos para actualizar');
 
-        // Validar si existe el usuario
-        if(!user){throw new Error('No se encontró ningún usuario');}
-
-        // Validar que existan elementos en el body
-        if(!cambios){throw new Error('No envió los datos del usuario a agregar');}
-
-        // Validar roles
-        const rol = await validarRol(cambios.ROLES);
-        console.log("CAMBIOS 1:",cambios);
-        console.log("ROL: ",rol);
-        cambios.ROLES = rol;
-        console.log("CAMBIOS 2:",cambios);
-
-        if (!user) {
-            throw new Error('Usuario no encontrado');
+        // Validar roles si están en el request
+        if (cambios.ROLES) {
+            const rol = await validarRol(cambios.ROLES);
+            cambios.ROLES = rol;
         }
 
-        // Desactivar el registro CURRENT actual en DETAIL_ROW_REG
+        // Manejo de auditoría
         if (!user.DETAIL_ROW) {
             user.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
         }
 
         const now = new Date();
 
-        if (Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
+        if (!Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
+            user.DETAIL_ROW.DETAIL_ROW_REG = [];
+        } else {
             user.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
                 if (reg.CURRENT) reg.CURRENT = false;
             });
-        } else {
-            user.DETAIL_ROW.DETAIL_ROW_REG = [];
         }
 
-        // Agregar nuevo registro en DETAIL_ROW_REG
         user.DETAIL_ROW.DETAIL_ROW_REG.push({
             CURRENT: true,
             REGDATE: now,
@@ -217,73 +211,77 @@ async function UpdateUser(req,userid){
             REGUSER: currentUser
         });
 
-        // Aplicar cambios recibidos
-        Object.assign(user, cambios);
+        // Aplicar cambios
+        Object.keys(cambios).forEach(key => {
+            user[key] = cambios[key];
+        });
 
         const updated = await user.save();
         return updated.toObject();
-
-    }catch(error){
-        return error;
+    } catch (error) {
+        return { error: true, message: error.message };
     }
 }
 
+// ==============================
+// LOGICAL DELETE
+// Realiza una eliminación lógica (ACTIVED = false, DELETED = true)
+// ==============================
 async function LogDelete(userid, req) {
-  try {
-    const currentUser = req.req?.query?.RegUser || 'SYSTEM';
+    try {
+        const currentUser = req.req?.query?.RegUser || 'SYSTEM';
+        const user = await UsersSchema.findOne({ USERID: userid });
 
-    // Buscar usuario actual
-    const user = await UsersSchema.findOne({ USERID: userid });
+        if (!user) throw new Error('No se encontró ningún usuario');
 
-    if (!user) throw new Error('No se encontró ningún usuario');
+        if (!user.DETAIL_ROW) {
+            user.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        }
 
-    if (!user.DETAIL_ROW) {
-      user.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        const now = new Date();
+
+        if (!Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
+            user.DETAIL_ROW.DETAIL_ROW_REG = [];
+        } else {
+            user.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+                if (reg.CURRENT) reg.CURRENT = false;
+            });
+        }
+
+        user.DETAIL_ROW.ACTIVED = false;
+        user.DETAIL_ROW.DELETED = true;
+
+        user.DETAIL_ROW.DETAIL_ROW_REG.push({
+            CURRENT: true,
+            REGDATE: now,
+            REGTIME: now,
+            REGUSER: currentUser
+        });
+
+        const updated = await user.save();
+        return updated.toObject();
+    } catch (error) {
+        console.error('Error en LogDelete:', error);
+        throw error;
     }
-
-    const now = new Date();
-
-    if (Array.isArray(user.DETAIL_ROW.DETAIL_ROW_REG)) {
-      user.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
-        if (reg.CURRENT) reg.CURRENT = false;
-      });
-    } else {
-      user.DETAIL_ROW.DETAIL_ROW_REG = [];
-    }
-
-    // Marcar borrado lógico
-    user.DETAIL_ROW.ACTIVED = false;
-    user.DETAIL_ROW.DELETED = true;
-
-    // Nuevo registro de detalle
-    user.DETAIL_ROW.DETAIL_ROW_REG.push({
-      CURRENT: true,
-      REGDATE: now,
-      REGTIME: now,
-      REGUSER: currentUser
-    });
-
-    // Guardar cambios
-    const updated = await user.save();
-
-    return updated.toObject();
-  } catch (error) {
-    console.error('Error en LogDelete:', error);
-    throw error;  // Mejor lanzar el error para que el controlador lo capture
-  }
 }
 
+// ==============================
+// HARD DELETE
+// Elimina físicamente al usuario de la base de datos
+// ==============================
 async function HardDelete(userid) {
     try {
-        const deleted = await UsersSchema.findOneAndDelete({USERID:userid});
-        if(deleted.deletedCount === 0){
+        const deleted = await UsersSchema.findOneAndDelete({ USERID: userid });
+        if (!deleted) {
             throw new Error("No se pudo eliminar el usuario especificado");
         }
 
-        return {mensaje:'Usuario eliminado con exito y para siempre'};
+        return { mensaje: 'Usuario eliminado con éxito y para siempre' };
     } catch (error) {
         return error;
     }
 }
 
-module.exports = {UsersCRUD};
+// Exportar función principal del servicio
+module.exports = { UsersCRUD };
