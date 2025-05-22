@@ -3,7 +3,6 @@ const { RolesCRUD } = require("../services/sec-roles-service");
 const { ValuesCRUD } = require("../services/sec-values-service");
 const { CatalogsR } = require("../services/sec-catalogs-service");
 const { LabelCRUD } = require("../services/sec-labels-service");
-const { CatalogsR } = require("../services/sec-catalogs-service");
 const { UsersCRUD } = require("../services/sec-users-service");
 const {
   GetAllLabels,

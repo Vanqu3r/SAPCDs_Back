@@ -9,7 +9,7 @@ async function LabelCRUD(req) {
 
     switch (procedure) {
       case "getall":
-        console.log("hola");
+        // console.log("hola");
 
         res = GetAllLabels();
         break;
@@ -123,6 +123,52 @@ async function PatchLabel(req) {
 
 async function LogicalLabel(req) {
   const { status, labelID } = req.req.query;
+  // console.log("si entramos ");
+
+  let actived = true;
+  let deleted = false;
+  if (status && status === "delete") {
+    actived = false;
+    deleted = true;
+  }
+
+  const now = new Date();
+  const currentUser = "FIBARRAC"; // Deberías obtener esto del usuario autenticado
+
+  try {
+    const updateData = {
+      "DETAIL_ROW.ACTIVED": actived,
+      "DETAIL_ROW.DELETED": deleted,
+      // Primero actualizar todos los elementos existentes con CURRENT: false
+      "DETAIL_ROW_REG.$[].CURRENT": actived,
+      // Luego añadir el nuevo registro
+      $push: {
+        "DETAIL_ROW_REG": {
+          CURRENT: deleted,
+          REGDATE: now,
+          REGTIME: now,
+          REGUSER: currentUser
+        }
+      }
+    };
+
+    const deleteLogic = await ztlabels.findOneAndUpdate(
+      {
+        LABELID: labelID,
+      },
+      updateData,
+      { new: true }
+    );
+    
+    return deleteLogic.toObject();
+  } catch (error) {
+    console.error("Error al eliminar la etiqueta:", error);
+    return { error: true, message: "Error al eliminar la etiqueta" };
+  }
+}
+
+/* async function LogicalLabel(req) {
+  const { status, labelID } = req.req.query;
   console.log("si entramos ");
 
   let actived = true;
@@ -131,20 +177,23 @@ async function LogicalLabel(req) {
     actived = false;
     deleted = true;
   }
-  const deleteLogic = await ztlabels.findOneAndUpdate(
-    {
-      LABELID: labelID,
-    },
-    {
-      "DETAIL_ROW.ACTIVED": actived,
-      "DETAIL_ROW.DELETED": deleted,
-    },
-    { new: true }
-  );
-  console.log(deleteLogic);
-
-  return deleteLogic;
-}
+  try {
+    const deleteLogic = await ztlabels.findOneAndUpdate(
+      {
+        LABELID: labelID,
+      },
+      {
+        "DETAIL_ROW.ACTIVED": actived,
+        "DETAIL_ROW.DELETED": deleted,
+      },
+      { new: true }
+    );
+    return (result = deleteLogic.toObject());
+  } catch (error) {
+    console.error("Error al eliminar la etiqueta:", error);
+    return { error: true, message: "Error al eliminar la etiqueta" };
+  }
+} */
 
 module.exports = {
   LabelCRUD,
