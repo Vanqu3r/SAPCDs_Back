@@ -7,20 +7,16 @@ async function ValuesCRUD(req) {
 
     let result;
 
+    if (procedure === 'getall') {
+        result = await ValueSchema.find().lean();
+    }
+
     if (procedure === 'post') {
         console.log('POST procedure');
         const newValue = req.req.query;
         const labelprocess = newValue.LABELID;
-        if (labelprocess==="IdViews") {
-            result = postValidation("IdApplications",newValue);
-        }
-        if (labelprocess==="IdProcesses"){
-            result = postValidation("IdViews",newValue);
-        }
-        if(labelprocess==="IdApplications" || labelprocess==="IdPrivileges"){
             const validValue = await ValueSchema.create(newValue); 
             result = validValue.toObject();
-        }
     }
     
     if (procedure === 'put') {    
@@ -30,17 +26,10 @@ async function ValuesCRUD(req) {
         LABELID: updateValue.LABELID
       }).lean();
 
-      if(ValueOriginal.VALUEPAID===updateValue.VALUEPAID){
+      if(ValueOriginal!==null){
         result = Update(updateValue);
       }else{
-        if(ValueOriginal.LABELID==="IdViews"){
-          result=putValidation("IdApplications",updateValue);
-        }
-        if(ValueOriginal.LABELID==="IdProcesses"){
-          result=putValidation("IdViews",updateValue);
-        }else{
-          result = Update(updateValue);
-        }
+        throw new Error(`No se actualizo el valor`);
       }
 
     }
@@ -66,34 +55,6 @@ async function ValuesCRUD(req) {
     console.error('Error en ValuesCRUD:', error);
     return { error: true, message: error.message };
   }
-}
-
-async function postValidation(type,newValue) {
-    const processIds = (newValue.VALUEPAID.replace(type+"-", '').trim());
-            let validacion = await ValueSchema.findOne({
-                VALUEID: processIds,
-                LABELID: type
-              }).lean();
-            if (validacion===null){
-                throw new Error(`El siguiente ${type}  no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
-            }else{
-                const validValue = await ValueSchema.create(newValue); 
-                result = validValue.toObject();
-            }
-            return result;
-}
-
-async function putValidation(type,Value) {
-  const processIds = (Value.VALUEPAID.replace(type+"-", '').trim());
-          let validacion = await ValueSchema.findOne({
-              VALUEID: processIds,
-              LABELID: type
-            }).lean();
-          if (validacion===null){
-            throw new Error(`El siguiente valor de ${type} no existe: ${processIds}En ValuePaid, coloque la siguiente estructura en el label: ${type}-ID`);
-          }else{
-            return result = Update(Value);
-          }
 }
 
 async function Update(updateValue){
