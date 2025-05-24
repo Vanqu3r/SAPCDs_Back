@@ -1,142 +1,199 @@
-const RoleSchema = require('../models/mongodb/ztroles');
-const ValueSchema = require('../models/mongodb/ztvalues');
-const RolesInfoSchema = require('../models/mongodb/getRolesModel');
-const RolesInfoUsers = require('../models/mongodb/getRolesUsersModel');
+// ==============================
+// Importación de Modelos
+// ==============================
+const RoleSchema = require('../models/mongodb/ztroles'); // Modelo principal de roles
+const ValueSchema = require('../models/mongodb/ztvalues'); // Modelo de valores (para validar procesos)
+const RolesInfoSchema = require('../models/mongodb/getRolesModel'); // Vista enriquecida de roles
+const RolesInfoUsers = require('../models/mongodb/getRolesUsersModel'); // Vista de usuarios por rol
 
+// ==============================
+// Servicio CRUD para Roles
+// ==============================
 async function RolesCRUD(req) {
   try {
+    // ============================
+    // Extracción de parámetros
+    // ============================
     const { procedure, type, roleid } = req.req.query;
-    console.log('PROCEDURE:', procedure, 'TYPE:', type);
-
+    const currentUser = req.req?.query?.RegUser || 'SYSTEM';
+    const body = req.req.body;
     let result;
 
-
-    //FUNCION PARA VALDIAR PROCESSID
+    // ============================
+    // Validación de PRIVILEGIOS -> Validar si los PROCESSID existen
+    // ============================
     const validarProcessIds = async (privilegios = []) => {
       const processIds = (privilegios || []).map(p =>
         p.PROCESSID.replace('IdProcess-', '').trim()
       );
 
       const procesosValidos = await ValueSchema.find({
-        LABELID: "IdProcesses",
+        LABELID: 'IdProcesses',
         VALUEID: { $in: processIds }
       }).lean();
 
       if (procesosValidos.length !== processIds.length) {
         const encontrados = procesosValidos.map(p => p.VALUEID);
         const faltantes = processIds.filter(id => !encontrados.includes(id));
-
         throw new Error(`No existe el siguiente proceso en la Base de Datos: ${faltantes.join(', ')}`);
       }
     };
 
+    // ============================
+    // Switch Principal (por procedimiento)
+    // ============================
+    switch (procedure) {
 
+      // ============================
+      // OBTENER ROLES
+      // ============================
+      case 'get':
+        switch (type) {
+          case 'all':
+            // Obtener todos los roles (vista enriquecida)
+            result = await RolesInfoSchema.find().lean();
+            break;
+          case 'one':
+            // Obtener un solo rol por ROLEID
+            result = await RolesInfoSchema.find({ ROLEID: roleid }).lean();
+            break;
+          case 'users':
+            // Obtener usuarios relacionados con un rol
+            const filter = roleid ? { ROLEID: roleid } : {};
+            result = await RolesInfoUsers.find(filter).lean();
+            break;
+          default:
+            throw new Error('Tipo inválido en GET');
+        }
+        break;
 
-    // GET ALL ------------------------------------
-    if (procedure === 'get' && type === 'all') {
-      result = await RolesInfoSchema.find().lean();
+      // ============================
+      // CREAR NUEVO ROL
+      // ============================
+      case 'post':
+        // Validar los privilegios asociados
+        await validarProcessIds(body.PRIVILEGES);
 
+        // Crear nueva instancia del modelo y registrar el usuario
+        const instance = new RoleSchema(body);
+        instance._reguser = currentUser;
 
+        const nuevoRol = await instance.save();
+        result = nuevoRol.toObject();
+        break;
 
-      // GET CON USERS ----------------------------------
-    } else if (procedure === 'get' && type === 'users') {
-      const filter = {};
-      if (roleid) {
-        filter.ROLEID = roleid;
-      }
-
-      result = await RolesInfoUsers.find(filter).lean()
-
-
-      // POST -------------------------------------
-    } else if (req.req.query.procedure === 'post') {
-      
-      const nuevoRol = req.req.body;
-      await validarProcessIds(nuevoRol.PRIVILEGES);
-
-      const nuevoRolito = await RoleSchema.create(nuevoRol);
-      result = nuevoRolito.toObject();
-
-        
-
-
-      // DELETE ----------------------------
-    } else if (procedure === 'delete') {
-      if (!roleid) throw new Error('Parametro faltante (RoleID)');
-
-
-      //DELETE LOGICO
-      if (type === 'logic') {
-
-        updated = await RoleSchema.findOneAndUpdate(
-          { ROLEID: roleid },
-          {
-            $set: { 'DETAIL_ROW.ACTIVED': false,  'DETAIL_ROW.DELETED': true }
-          },
-          { new: true }
-        );
-
-        if (!updated) throw new Error('No existe el rol especificado.');
-        result = updated.toObject();
-
-        console.log('Rol desactivado');
-
-
-
-        //DELETE FISICO
-      } else if (type === 'hard') {
-
-        const deleted = await RoleSchema.deleteOne({ ROLEID: roleid });
-
-        if (deleted.deletedCount === 0) {
-          throw new Error('No existe el rol especificado.');
+      // ============================
+      // ACTUALIZAR ROL EXISTENTE
+      // ============================
+      case 'put':
+        if (!roleid) throw new Error('Parametro faltante (RoleID)');
+        const updateData = body;
+        if (!updateData || Object.keys(updateData).length === 0) {
+          throw new Error('No se proporcionan campos para actualizar');
         }
 
-        result = { message: 'Rol eliminado.' };
+        const roleToUpdate = await RoleSchema.findOne({ ROLEID: roleid });
+        if (!roleToUpdate) throw new Error('El rol a actualizar no existe');
 
-      }
+        // Validar privilegios si se actualizan
+        if (updateData.PRIVILEGES) {
+          await validarProcessIds(updateData.PRIVILEGES);
+        }
 
+        // Historial de modificación (DETAIL_ROW)
+        const nowPut = new Date();
+        if (!roleToUpdate.DETAIL_ROW) {
+          roleToUpdate.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+        }
 
-      //PUT ----------------------------------------------
+        if (Array.isArray(roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG)) {
+          roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+            if (reg.CURRENT) reg.CURRENT = false;
+          });
+        } else {
+          roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG = [];
+        }
 
-    } else if (procedure === 'put') {
-      if (!roleid) throw new Error('Parametro faltante (RoleID)');
+        roleToUpdate.DETAIL_ROW.DETAIL_ROW_REG.push({
+          CURRENT: true,
+          REGDATE: nowPut,
+          REGTIME: nowPut,
+          REGUSER: currentUser
+        });
 
-      const camposActualizar = req.req.body;
+        // Aplicar cambios
+        Object.assign(roleToUpdate, updateData);
+        const updatedRole = await roleToUpdate.save();
+        result = updatedRole.toObject();
+        break;
 
-      if (!camposActualizar || Object.keys(camposActualizar).length === 0) {
-        throw new Error('No se proporcionan campos para actualizar');
-      }
+      // ============================
+      // ELIMINAR ROL (Lógica o Física)
+      // ============================
+      case 'delete':
+        if (!roleid) throw new Error('Parametro faltante (RoleID)');
 
-      //SI HAY PRIVILEGIOS A ACTUALIZAR SE LLAMA LA FUNCION PARA VALIDAR ESA COSA
-      if (camposActualizar.PRIVILEGES) {
-        await validarProcessIds(camposActualizar.PRIVILEGES);
-      }
+        switch (type) {
+          case 'logic':
+            // Eliminación lógica (se marca como inactivo y eliminado)
+            const roleToLogicDelete = await RoleSchema.findOne({ ROLEID: roleid });
+            if (!roleToLogicDelete) throw new Error('No se encontró ningún rol');
 
-      const updated = await RoleSchema.findOneAndUpdate(
-        { ROLEID: roleid },
-        { $set: camposActualizar },
-        { new: true }
-      );
+            const nowDel = new Date();
+            if (!roleToLogicDelete.DETAIL_ROW) {
+              roleToLogicDelete.DETAIL_ROW = { ACTIVED: true, DELETED: false, DETAIL_ROW_REG: [] };
+            }
 
-      if (!updated) throw new Error('No se encontró el rol para actualizar');
+            if (Array.isArray(roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG)) {
+              roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+                if (reg.CURRENT) reg.CURRENT = false;
+              });
+            } else {
+              roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG = [];
+            }
 
-      result = updated.toObject();
+            roleToLogicDelete.DETAIL_ROW.ACTIVED = false;
+            roleToLogicDelete.DETAIL_ROW.DELETED = true;
+            roleToLogicDelete.DETAIL_ROW.DETAIL_ROW_REG.push({
+              CURRENT: true,
+              REGDATE: nowDel,
+              REGTIME: nowDel,
+              REGUSER: currentUser
+            });
 
-    } else {
-      console.log('No coincide ningún procedimiento');
-      throw new Error('Parámetros inválidos o incompletos');
+            const logicDeleted = await roleToLogicDelete.save();
+            result = logicDeleted.toObject();
+            break;
+
+          case 'hard':
+            // Eliminación física (borrado de la base de datos)
+            const hardDeleted = await RoleSchema.deleteOne({ ROLEID: roleid });
+            if (hardDeleted.deletedCount === 0) {
+              throw new Error('No existe el rol especificado.');
+            }
+            result = { message: 'Rol eliminado.' };
+            break;
+
+          default:
+            throw new Error('Tipo inválido en DELETE');
+        }
+        break;
+
+      // ============================
+      // PROCEDIMIENTO NO RECONOCIDO
+      // ============================
+      default:
+        throw new Error('Parámetro "procedure" inválido o no especificado');
     }
 
-
-      return JSON.parse(JSON.stringify(result));
-
+    // ============================
+    // Retornar resultado final
+    // ============================
+    return JSON.parse(JSON.stringify(result));
   } catch (error) {
     console.error('Error en RolesCRUD:', error);
     return { error: true, message: error.message };
   }
 }
-
-
 
 module.exports = { RolesCRUD };
