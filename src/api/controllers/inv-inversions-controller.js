@@ -84,7 +84,12 @@ class InversionsRoute extends cds.ApplicationService {
         });
         //pricesHistory
         this.on('priceshistorycrud', async (req) => {
-            return PricesHistoryCrud(req);
+            const { procedure, strategy, symbol } = req.req.query;
+            if (!procedure || !symbol) {
+                return { message: "Faltan parametros importantes" }
+            } else {
+                return PricesHistoryCrud(req);
+            }
         });
         //Estrategia CRUD
         this.on('strategy', async (req) => {
@@ -93,7 +98,12 @@ class InversionsRoute extends cds.ApplicationService {
 
         //Indicadores
         this.on('indicators', async (req) => {
-            return getIndicadors(req);
+            const { procedure, strategy, symbol } = req.req.query;
+            if (!procedure || !strategy || !symbol) {
+                return { message: "Faltan parametros importantes" }
+            } else {
+                return getIndicadors(req);
+            }
         });
 
         //Symbols

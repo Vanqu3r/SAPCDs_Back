@@ -194,13 +194,13 @@ function calculateIndicators(prices, indicators) {
 
   return prices.map((item, i) => ({
     date: item.date,
-    ...Object.fromEntries(Object.entries(item).filter(([k]) => k !== "date")),
+    //...Object.fromEntries(Object.entries(item).filter(([k]) => k !== "date")),
     ...(results.SHORT.length ? { SHORT: results.SHORT[i] } : {}),
     ...(results.LONG.length ? { LONG: results.LONG[i] } : {}),
     ...(results.RSI.length ? { RSI: results.RSI[i] } : {}),
-    ...(results.MACD.length ? { MACD: results.MACD[i] } : {}),
+    //...(results.MACD.length ? { MACD: results.MACD[i] } : {}),
     ...(results.ADX.length ? { ADX: results.ADX[i] } : {}),
-    ...(results.MOM.length ? { MOM: results.MOM[i] } : {})
+   // ...(results.MOM.length ? { MOM: results.MOM[i] } : {})
   }));
 }
 

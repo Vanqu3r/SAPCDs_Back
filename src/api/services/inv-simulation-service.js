@@ -225,19 +225,19 @@ async function SimulateMomentum(req) {
     //console.log(indicadoresFiltrados);
     //console.log(priceHistoryFiltrado);
 
-    function simularEstrategiaTrading(indicadoresFiltrados, historialPreciosFiltrado, capital = 1000) {
+    function simularEstrategiaTrading(indicadoresFiltrados, historialPreciosFiltrado, capitalInicial) {
         const señales = [];
+        let capital = capitalInicial;
+        let acciones = 0;
 
         for (let i = 1; i < indicadoresFiltrados.length; i++) {
             const anterior = indicadoresFiltrados[i - 1];
             const actual = indicadoresFiltrados[i];
 
-            // Buscar el precio correspondiente por fecha
             const precioDia = historialPreciosFiltrado.find(
                 precio => new Date(precio.DATE).toISOString().slice(0, 10) === new Date(actual.DATE).toISOString().slice(0, 10)
             );
-
-            if (!precioDia) continue; // Si no hay precio para esa fecha, saltar
+            if (!precioDia) continue;
 
             const precioCierre = precioDia.CLOSE;
             const adxSuficiente = actual.ADX > 20;
@@ -249,43 +249,59 @@ async function SimulateMomentum(req) {
             let señalGenerada = false;
 
             if (adxSuficiente) {
-                if (mediaCortaAnterior < mediaLargaAnterior && mediaCortaActual > mediaLargaActual) {
+                // Señal de compra (golden cross)
+                if (mediaCortaAnterior < mediaLargaAnterior && mediaCortaActual > mediaLargaActual && capital > 0) {
+                    const accionesAComprar = +(capital / precioCierre).toFixed(6);
+                    acciones += accionesAComprar;
                     señales.push({
-                        FECHA: actual.DATE,
-                        TIPO: "compra",
-                        PRECIO: precioCierre,
-                        MOTIVO: "Golden Cross: la media corta cruzó por encima de la media larga",
-                        ACCIONES: +(capital / precioCierre).toFixed(6)
+                        DATE: actual.DATE,
+                        TYPE: "compra",
+                        PRICE: precioCierre,
+                        REASONING: "Golden Cross: la media corta cruzó por encima de la media larga",
+                        SHARES: accionesAComprar
                     });
+                    capital = 0;
                     señalGenerada = true;
-                } else if (mediaCortaAnterior > mediaLargaAnterior && mediaCortaActual < mediaLargaActual) {
+                }
+                // Señal de venta (death cross)
+                else if (mediaCortaAnterior > mediaLargaAnterior && mediaCortaActual < mediaLargaActual && acciones > 0) {
+                    const ventaCapital = +(acciones * precioCierre).toFixed(2);
                     señales.push({
                         DATE: actual.DATE,
                         TYPE: "venta",
                         PRICE: precioCierre,
                         REASONING: "Death Cross: la media corta cruzó por debajo de la media larga",
-                        SHARES: +(capital / precioCierre).toFixed(6)
+                        SHARES: acciones
                     });
+                    capital += ventaCapital;
+                    acciones = 0;
                     señalGenerada = true;
                 }
             }
 
-            // Si no se generó señal de compra ni venta, agregar señal mantener
             if (!señalGenerada) {
                 señales.push({
                     DATE: actual.DATE,
                     TYPE: "",
                     PRICE: precioCierre,
-                    REASONING: "Ningún cruce detectado, mantener posición",
+                    REASONING: "Ningún cruce detectado o condiciones no favorables, mantener posición",
                     SHARES: 0
                 });
             }
         }
 
-        return { SEÑALES: señales };
+        return {
+            SEÑALES: señales,
+            RESULTADO_FINAL: {
+                CAPITAL_FINAL: +capital.toFixed(2),
+                ACCIONES_RESTANTES: +acciones.toFixed(6),
+                VALOR_TOTAL: +(capital + acciones * historialPreciosFiltrado.at(-1).CLOSE).toFixed(2)
+            }
+        };
     }
 
-    function calcularResumenFinanciero(señales, historialPreciosFiltrado, capitalInicial = 100000) {
+
+    function calcularResumenFinanciero(señales, historialPreciosFiltrado, capitalInicial) {
         let cash = capitalInicial;
         let unidadesEnCartera = 0;
         let totalComprado = 0;
@@ -293,9 +309,12 @@ async function SimulateMomentum(req) {
         let costoTotalComprado = 0; // para calcular ganancia real
 
         for (const señal of señales) {
-            if (!señal.FECHA) continue; // fecha no definida, saltar
-
-            const fecha = new Date(señal.FECHA);
+            console.log(señal);
+            if (!señal.DATE) {
+                console.log("no fecha");
+                continue; // fecha no definida, saltar
+            }
+            const fecha = new Date(señal.DATE);
             if (isNaN(fecha.getTime())) continue; // fecha inválida, saltar
 
             const fechaISO = fecha.toISOString().slice(0, 10);
@@ -308,17 +327,17 @@ async function SimulateMomentum(req) {
 
             const precio = precioDia.CLOSE;
 
-            if (señal.TIPO === "compra" && señal.ACCIONES > 0) {
-                const costoOperacion = precio * señal.ACCIONES;
+            if (señal.TYPE === "compra" && señal.SHARES > 0) {
+                const costoOperacion = precio * señal.SHARES;
                 if (costoOperacion <= cash) {
                     cash -= costoOperacion;
-                    unidadesEnCartera += señal.ACCIONES;
-                    totalComprado += señal.ACCIONES;
+                    unidadesEnCartera += señal.SHARES;
+                    totalComprado += señal.SHARES;
                     costoTotalComprado += costoOperacion;
                 }
                 // si no hay cash suficiente, ignora la compra (o podrías comprar parcial)
-            } else if (señal.TIPO === "venta" && señal.ACCIONES > 0) {
-                const unidadesAVender = Math.min(señal.ACCIONES, unidadesEnCartera);
+            } else if (señal.TYPE === "venta" && señal.SHARES > 0) {
+                const unidadesAVender = Math.min(señal.SHARES, unidadesEnCartera);
                 const ingresoOperacion = unidadesAVender * precio;
                 cash += ingresoOperacion;
                 unidadesEnCartera -= unidadesAVender;
@@ -351,9 +370,11 @@ async function SimulateMomentum(req) {
         };
     }
 
+
     //REVISAR SI ESTA BIEN ESTAS COSAS
-    const resultadoSimulacion = simularEstrategiaTrading(indicadoresFiltrados, priceHistoryFiltrado, 100000);
-    const resumen = calcularResumenFinanciero(resultadoSimulacion.SEÑALES, priceHistoryFiltrado, 100000);
+    const resultadoSimulacion = simularEstrategiaTrading(indicadoresFiltrados, priceHistoryFiltrado, AMOUNT);
+    //  console.log(resultadoSimulacion)
+    const resumen = calcularResumenFinanciero(resultadoSimulacion.SEÑALES, priceHistoryFiltrado, AMOUNT);
     console.log(resumen);
 
 

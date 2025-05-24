@@ -7,10 +7,18 @@ const API_KEY = "BO56AF48GLBDHFVR"//"7NONLRJ6ARKI0BA4";//"UIDZTARCBET62W2J";
 async function getIndicadors(req, res) {
 
   //Filtramos por estrategia
-  const { strategy } = req.req.query;
+  const { strategy, } = req.req.query;
+  const estrategiasValidas = ['momentum', 'general'];
+
+  if (!estrategiasValidas.includes(strategy)) {
+    return { message: "Estrategia no válida" };
+  }
   if (strategy === 'momentum') {
     const { procedure } = req.req.query;
-    if (procedure === "POST") {
+    if (procedure !== "GET") {
+      return { message: "Procedimiento invalido" };
+    }
+    if (procedure === "GET") {
       const { symbol, interval, startDate, endDate } = req.req.query;
       const { indicators } = req.req.body;
       if (!indicators || indicators.length === 0) {
@@ -25,20 +33,23 @@ async function getIndicadors(req, res) {
  
        if (!exite) {*/
       const result = await checkAndCreateSymbol(symbol, interval);
-      console.log("aqui", result);
-      if (result && result.data && result.data.length > 0) {
+
+      if (!result) {
+        return { message: "No hay nada que procesar" }
+      } else {
         // Parsear los datos para el cálculo de indicadores
-        const parsedData = result.data.map(entry => ({
+        const parsedData = result.map(entry => ({
           date: new Date(entry.DATE),
           close: parseFloat(entry.CLOSE),
           high: parseFloat(entry.HIGH),
           low: parseFloat(entry.LOW),
           volume: parseFloat(entry.VOLUME),
-        })).reverse(); // Opcional, según cómo venga ordenada la data
+        }));
 
         // Calcular indicadores con la función que tengas definida
         const dataConIndicadores = calculateIndicators(parsedData, indicators);
 
+        /*
         // Preparar el documento a guardar en MongoDB
         const indicadorDoc = new indicadors({
           symbol: result.symbol,
@@ -49,10 +60,10 @@ async function getIndicadors(req, res) {
           timezone: result.timezone || "UTC",
           data: dataConIndicadores,
         });
-        console.log(dataConIndicadores);
         // Guardar en la base de datos
         //await indicadorDoc.save();
         // Convertir fechas de query a objetos Date (si existen)
+        */
         const fechaInicio = startDate ? new Date(startDate) : null;
         const fechaFin = endDate ? new Date(endDate) : null;
 
@@ -67,58 +78,26 @@ async function getIndicadors(req, res) {
         });
         // Devolver la data procesada
         return {
-          symbol: result.symbol,
-          name: result.name,
+          symbol: symbol,
           strategy: "Momentum",
           assetType: result.assetType || "stock",
-          interval: result.interval,
+          interval: interval,
           timezone: result.timezone || "UTC",
           data: datosFiltrados,
         };
-      } else {
-        throw new Error("No hay datos para procesar");
       }
       /*} else {
         return { status: 'error', message: 'Indicadores encontrados en la base de datos' };
       }*/
-    } else if (procedure === "GET") {
-      const { symbol, startDate, endDate } = req.req.query;
-      const result = await indicadors.findOne({
-        symbol: symbol,
-      }).lean();
-
-      if (!result) {
-        return { status: 'error', message: 'No se encontraron datos del Symbolo' };
-      }
-
-      // Convertir fechas de query a objetos Date (si existen)
-      const fechaInicio = startDate ? new Date(startDate) : null;
-      const fechaFin = endDate ? new Date(endDate) : null;
-
-      // Validar fechas
-      if (fechaInicio && isNaN(fechaInicio)) return { status: 'error', message: 'Fecha de inicio inválida' };
-      if (fechaFin && isNaN(fechaFin)) return { status: 'error', message: 'Fecha de fin inválida' };
-
-      // Filtrar los datos
-      const datosFiltrados = result.data.filter(punto => {
-        const fecha = new Date(punto.date);
-        return (!fechaInicio || fecha >= fechaInicio) && (!fechaFin || fecha <= fechaFin);
-      });
-
-      return {
-        symbol: result.symbol,
-        interval: result.interval,
-        name: result.name,
-        timezone: result.timezone,
-        assetType: result.assetType,
-        data: datosFiltrados,
-      };
     }
   }
 
   //para llamar por indicador en Alpha
   else if (strategy === 'general') {
     const { procedure } = req.req.query;
+    if (procedure !== "GET") {
+      return { message: "Procedimiento invalido" };
+    }
     if (procedure === "GET") {
       const { symbol, interval, functionName, startDate, endDate } = req.req.query;
 
@@ -127,7 +106,7 @@ async function getIndicadors(req, res) {
       try {
         const response = await axios.get(url);
         const data = response.data;
-        console.log(JSON.stringify(data, null, 2));
+
         // Buscar la clave que contiene los datos técnicos
         const key = Object.keys(data).find(k => k.includes('Technical Analysis'));
         const analysis = data[key];
@@ -159,7 +138,7 @@ async function getIndicadors(req, res) {
 
 
       } catch (error) {
-        console.error(`❌ Error al obtener ${functionName}:`, error.message);
+        console.error(`Error al obtener ${functionName}:`, error.message);
 
       }
     }
@@ -174,16 +153,16 @@ async function checkAndCreateSymbol(symbol, interval, name = symbol) {
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   try {
-    const getUrl = `${apiUrl}?procedure=GET&symbol=${symbol}`;
+    const getUrl = `${apiUrl}?procedure=GET&type=ALPHA&symbol=${symbol}`;
     const getResponse = await axios.post(getUrl);
+
     const existingItem = getResponse.data?.value?.[0];
-    console.log("symbol recibido:", symbol);
-    console.log("symbol en existingItem:", existingItem.symbol);
-    console.log("Comparación:", existingItem.symbol === symbol);
-    return (existingItem)
+    const dataArray = existingItem?.result?.data;
+
+    return (dataArray)
     /*
         if (existingItem && existingItem.symbol === symbol && existingItem.data?.length > 0) {
-          console.log(`✅ El símbolo ${symbol} ya está en la base de datos.`);
+          console.log(` El símbolo ${symbol} ya está en la base de datos.`);
           return existingItem;
         }
     
@@ -192,7 +171,7 @@ async function checkAndCreateSymbol(symbol, interval, name = symbol) {
         const postUrl = `${apiUrl}?procedure=POST&symbol=${symbol}&interval=${interval}&name=${encodeURIComponent(name)}`;
         await axios.post(postUrl); // Dispara creación
     
-        // 🔁 Reintentar hasta que tenga data real
+        //  Reintentar hasta que tenga data real
         for (let i = 0; i < 5; i++) {
           await wait(2000); // Esperar 2 segundos
           const retryResponse = await axios.post(getUrl);
