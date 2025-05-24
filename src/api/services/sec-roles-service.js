@@ -1,7 +1,5 @@
 const RoleSchema = require('../models/mongodb/ztroles');
 const ValueSchema = require('../models/mongodb/ztvalues');
-const RolesInfoSchema = require('../models/mongodb/getRolesModel');
-const RolesInfoUsers = require('../models/mongodb/getRolesUsersModel');
 
 async function RolesCRUD(req) {
   try {
@@ -34,23 +32,297 @@ async function RolesCRUD(req) {
 
     // GET ALL ------------------------------------
     if (procedure === 'get' && type === 'all') {
-      const filter = {};
-      if (roleid) {
-        filter.ROLEID = roleid;
-      }
+        //por si pasa un IDROLE
+      const matchStage = roleid ? [{ $match: { ROLEID: roleid } }] : [];
 
-      result = await RolesInfoSchema.find(filter).lean()
+      // CONSULTA PARA ROLES
+      const pipelineAll = [
+        ...matchStage,
+        {
+          $unwind: {
+            path: "$PRIVILEGES",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $lookup: {
+            from: "ZTEVALUES",
+            let: { pid: "$PRIVILEGES.PROCESSID" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$LABELID", "IdProcesses"] },
+                      {
+                        $eq: [
+                          "$VALUEID",
+                          { $replaceOne: { input: "$$pid", find: "IdProcess-", replacement: "" } }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: "processInfo"
+          }
+        },
+        {
+          $unwind: {
+            path: "$processInfo",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $set: {
+            PROCESSNAME: "$processInfo.VALUE",
+            VIEWID: "$processInfo.VALUEPAID"
+          }
+        },
+        {
+          $lookup: {
+            from: "ZTEVALUES",
+            let: { vid: "$VIEWID" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$LABELID", "IdViews"] },
+                      {
+                        $eq: [
+                          "$VALUEID",
+                          { $replaceOne: { input: "$$vid", find: "IdViews-", replacement: "" } }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: "viewInfo"
+          }
+        },
+        {
+          $unwind: {
+            path: "$viewInfo",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $set: {
+            VIEWNAME: "$viewInfo.VALUE",
+            APPLICATIONID: "$viewInfo.VALUEPAID"
+          }
+        },
+        {
+          $lookup: {
+            from: "ZTEVALUES",
+            let: { aid: "$APPLICATIONID" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$LABELID", "IdApplications"] },
+                      {
+                        $eq: [
+                          "$VALUEID",
+                          { $replaceOne: { input: "$$aid", find: "IdApplications-", replacement: "" } }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: "appInfo"
+          }
+        },
+        {
+          $unwind: {
+            path: "$appInfo",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $set: {
+            APPLICATIONNAME: "$appInfo.VALUE"
+          }
+        },
+        {
+          $unwind: {
+            path: "$PRIVILEGES.PRIVILEGEID",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $lookup: {
+            from: "ZTEVALUES",
+            let: { prid: "$PRIVILEGES.PRIVILEGEID" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$LABELID", "IdPrivileges"] },
+                      { $eq: ["$VALUEID", "$$prid"] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: "privInfo"
+          }
+        },
+        {
+          $unwind: {
+            path: "$privInfo",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $group: {
+            _id: {
+              ROLEID: "$ROLEID",
+              ROLENAME: "$ROLENAME",
+              DESCRIPTION: "$DESCRIPTION",
+              PROCESSID: "$processInfo.VALUEID",
+              PROCESSNAME: "$PROCESSNAME",
+              VIEWID: "$viewInfo.VALUEID",
+              VIEWNAME: "$VIEWNAME",
+              APPLICATIONID: "$appInfo.VALUEID",
+              APPLICATIONNAME: "$appInfo.VALUE"
+            },
+            PRIVILEGES: {
+              $push: {
+                PRIVILEGEID: "$PRIVILEGES.PRIVILEGEID",
+                PRIVILEGENAME: "$privInfo.VALUE"
+              }
+            },
+            DETAIL_ROW: { $first: "$DETAIL_ROW" }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              ROLEID: "$_id.ROLEID",
+              ROLENAME: "$_id.ROLENAME",
+              DESCRIPTION: "$_id.DESCRIPTION"
+            },
+            PROCESSES: {
+              $push: {
+                PROCESSID: "$_id.PROCESSID",
+                PROCESSNAME: "$_id.PROCESSNAME",
+                VIEWID: "$_id.VIEWID",
+                VIEWNAME: "$_id.VIEWNAME",
+                APPLICATIONID: "$_id.APPLICATIONID",
+                APPLICATIONNAME: "$_id.APPLICATIONNAME",
+                PRIVILEGES: "$PRIVILEGES"
+              }
+            },
+            DETAIL_ROW: { $first: "$DETAIL_ROW" }
+          }
+        },
+        {
+          $lookup: {
+            from: "ZTEUSERS",
+            let: { roleId: "$_id.ROLEID" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $in: ["$$roleId", "$ROLES.ROLEID"]
+                  }
+                }
+              },
+              {
+                $project: {
+                  _id: 0,
+                  USERID: 1,
+                  USERNAME: 1,
+                  COMPANYNAME: 1,
+                  DEPARTMENT: 1,
+                  EMPLOYEEID: 1
+                }
+              }
+            ],
+            as: "USERS"
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            ROLEID: "$_id.ROLEID",
+            ROLENAME: "$_id.ROLENAME",
+            DESCRIPTION: "$_id.DESCRIPTION",
+            PROCESSES: {
+              $filter: {
+                input: "$PROCESSES",
+                as: "proc",
+                cond: { $ne: ["$$proc.PROCESSID", null] }
+              }
+            },
+            USERS: 1,
+            DETAIL_ROW: 1
+          }
+        }
+      ];
 
+
+      result = await RoleSchema.aggregate(pipelineAll);
 
 
       // GET CON USERS ----------------------------------
     } else if (procedure === 'get' && type === 'users') {
-      const filter = {};
-      if (roleid) {
-        filter.ROLEID = roleid;
-      }
+      //por si pasa un IDROLE
+      const matchStage = roleid ? [{ $match: { ROLEID: roleid } }] : [];
 
-      result = await RolesInfoUsers.find(filter).lean()
+      // CONSULTA PARA ROLES-USUARIOS
+      const pipelineUsers = [
+        ...matchStage,
+        {
+          $lookup: {
+            from: "ZTEUSERS",
+            let: {
+              roleId: "$ROLEID"
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $in: ["$$roleId", "$ROLES.ROLEID"]
+                  }
+                }
+              },
+              {
+                $project: {
+                  _id: 0,
+                  USERID: 1,
+                  USERNAME: 1,
+                  COMPANYNAME: 1,
+                  DEPARTMENT: 1,
+                  EMPLOYEEID: 1
+                }
+              }
+            ],
+            as: "USERS"
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            ROLEID: 1,
+            ROLENAME: 1,
+            DESCRIPTION: 1,
+            USERS: 1,
+            DETAIL_ROW: 1
+          }
+        }
+      ]
+
+      result = await RoleSchema.aggregate(pipelineUsers);
 
 
       // POST -------------------------------------
@@ -106,57 +378,49 @@ async function RolesCRUD(req) {
     } else if (procedure === 'put') {
       if (!roleid) throw new Error('Parametro faltante (RoleID)');
 
-      const nuevosCampos = req.req.body;
-      if (!nuevosCampos || Object.keys(nuevosCampos).length === 0) {
+      const camposActualizar = req.req.body;
+
+      if (!camposActualizar || Object.keys(camposActualizar).length === 0) {
         throw new Error('No se proporcionan campos para actualizar');
       }
 
-      // Obtener el documento actual
-      const roleActual = await RoleSchema.findOne({ ROLEID: roleid });
-      if (!roleActual) throw new Error('No se encontró el rol para actualizar');
-
-      // Validar PRIVILEGES si está presente
-      if (nuevosCampos.PRIVILEGES) {
-        await validarProcessIds(nuevosCampos.PRIVILEGES);
+      //SI HAY PRIVILEGIOS A ACTUALIZAR SE LLAMA LA FUNCION PARA VALIDAR ESA COSA
+      if (camposActualizar.PRIVILEGES) {
+        await validarProcessIds(camposActualizar.PRIVILEGES);
       }
 
-      // Comparar campo por campo para detectar qué cambió
-      const camposCambiados = {};
-      for (const key in nuevosCampos) {
-        const nuevoValor = JSON.stringify(nuevosCampos[key]);
-        const valorActual = JSON.stringify(roleActual[key]);
+      const existing = await RoleSchema.findOne({ ROLEID: roleid });
+      if (!existing) throw new Error('No se encontró el rol para actualizar');
 
-        if (nuevoValor !== valorActual) {
-          camposCambiados[key] = nuevosCampos[key];
-        }
-      }
 
-      if (Object.keys(camposCambiados).length === 0) {
-        throw new Error('No hay cambios detectados para actualizar');
-      }
+      // Actualizar campos manualmente
+      Object.assign(existing, camposActualizar);
 
-      // Agregar registro a DETAIL_ROW.DETAIL_ROW_REG
+      // Actualizar el registro de la actualización
       const now = new Date();
-      const reguser = req.req.user?.email || 'SYSTEM';
+      const reguser = req.req.user?.USERNAME || 'SYSTEM';
 
-      camposCambiados['DETAIL_ROW.DETAIL_ROW_REG'] = [
-        ...roleActual.DETAIL_ROW.DETAIL_ROW_REG.map(r => ({ ...r, CURRENT: false })),
-        {
-          CURRENT: true,
-          REGDATE: now,
-          REGTIME: now,
-          REGUSER: reguser
-        }
-      ];
+      // Marcar registros anteriores como no actuales
+      if (Array.isArray(existing.DETAIL_ROW.DETAIL_ROW_REG)) {
+        existing.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+          reg.CURRENT = false;
+        });
+      } else {
+        existing.DETAIL_ROW.DETAIL_ROW_REG = [];
+      }
 
-      // Ejecutar la actualización
-      const updated = await RoleSchema.findOneAndUpdate(
-        { ROLEID: roleid },
-        { $set: camposCambiados },
-        { new: true }
-      );
+      // Agregar nuevo registro
+      existing.DETAIL_ROW.DETAIL_ROW_REG.push({
+        CURRENT: true,
+        REGDATE: now,
+        REGTIME: now,
+        REGUSER: reguser
+      });
 
+      // Guardar con validaciones y middleware
+      const updated = await existing.save();
       result = updated.toObject();
+
     } else {
       console.log('No coincide ningún procedimiento');
       throw new Error('Parámetros inválidos o incompletos');
