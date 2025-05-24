@@ -27,10 +27,10 @@ service SecurityRoute @(path: '/api/sec') {
     // DELETE LOGIC
     // http://localhost:4004/api/sec/rolesCRUD?procedure=delete&type=logic&roleid=IdSecurityPrUEBA3
 
-    // DELETE LOGIC
+    // BORRADO FISICO
     // http://localhost:4004/api/sec/rolesCRUD?procedure=delete&type=hard&roleid=IdSecurityPrUEBA3
 
-    // ADELETE LOGIC
+    // ACTUALIZAR
     // http://localhost:4004/api/sec/rolesCRUD?procedure=put&roleid=IdSecurityPrUEBA3
 
 
