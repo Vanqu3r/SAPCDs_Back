@@ -274,7 +274,7 @@ async function SimulateMomentum(req) {
             if (!señalGenerada) {
                 señales.push({
                     DATE: actual.DATE,
-                    TYPE: "mantener",
+                    TYPE: "",
                     PRICE: precioCierre,
                     REASONING: "Ningún cruce detectado, mantener posición",
                     SHARES: 0
