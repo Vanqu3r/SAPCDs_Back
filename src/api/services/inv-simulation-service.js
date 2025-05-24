@@ -1,21 +1,22 @@
-const Simulation = require('../models/mongodb/simulations');
+const SimulationModel = require('../models/mongodb/simulations');
 const axios = require('axios');
 require('dotenv').config();//para usar el .env despues
-const API_KEY = 'BO56AF48GLBDHFVR';
+const API_KEY = '7NONLRJ6ARKI0BA4';
 
 async function SimulateMomentum(req) {
     const { SYMBOL, STARTDATE, ENDDATE, AMOUNT, USERID, SPECS } = req || {};
     console.log(req);
+    const numR = Math.floor(Math.random() * 1000).toString();
     //GENERAR ID pa' la estrategia
     const idStrategy = (symbol, usuario) => {
         const date = new Date();
         const timestamp = date.toISOString().slice(0, 10);
         const user = usuario[0];
-        return `${symbol}-${timestamp}-${user}`;
+        return `${symbol}-${timestamp}-${user}-${numR}`;
     };
     //Datos Estaticos para la respuesta
     const SIMULATIONID = idStrategy(SYMBOL, USERID);
-    const SIMULATIONNAME = "Estrategia de Momentum";
+    const SIMULATIONNAME = "Estrategia de Momentum-" + numR;
     const STRATEGYID = "MOM";
     console.log(SIMULATIONID);
     // Validación del body.
@@ -30,32 +31,26 @@ async function SimulateMomentum(req) {
             message: `FALTAN PARÁMETROS REQUERIDOS: ${missingParams.join(", ")}.`
         };
     }
-    // ||||||| <---Usos de la API :v Traer PriceHistory DESCOMENTAR DESPUES
-    /* const APIURL = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${SYMBOL}&outputsize=full&apikey=${API_KEY}`;
-     const response = await axios.get(APIURL);
-     const data = response.data["Time Series (Daily)"]; // objeto por fechas
-      const parsedData = Object.entries(data).map(([date, values]) => ({
-        DATE: date,
+    // ||||||| <---Usos de la API
+    const APIURL = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${SYMBOL}&outputsize=full&apikey=${API_KEY}`;
+    const response = await axios.get(APIURL);
+    const data = response.data["Time Series (Daily)"]; // objeto por fechas
+    const parsedData = Object.entries(data).map(([date, values]) => ({
+        DATE: new Date(date).toISOString().slice(0, 10),
         OPEN: parseFloat(values["1. open"]),
         HIGH: parseFloat(values["2. high"]),
         LOW: parseFloat(values["3. low"]),
         CLOSE: parseFloat(values["4. close"]),
         VOLUME: parseFloat(values["5. volume"])
     }));
-    */
-    //PRICEHISTORY DE LA BD XD
-    const apiUrl = 'http://localhost:4004/api/inv/priceshistorycrud';
-    const getUrl = `${apiUrl}?procedure=GET&symbol=${SYMBOL}`;
-    const getResponse = await axios.post(getUrl);
-    const parsedData = getResponse.data?.value?.[0].data;
-    //console.log(parsedData);
-    //FIN DE MI MARRANADA
+
 
 
     //filtrar por fecha
     function filtrarPorFecha(data, startDate, endDate) {
         return data.filter(item => {
-            return item.DATE >= startDate && item.DATE <= endDate;
+            let itemdate = new Date(item.DATE).toISOString().slice(0, 10);
+            return itemdate >= startDate && itemdate <= endDate;
         });
     }
     function calculateEMA(data, period, key = "CLOSE") {
@@ -209,7 +204,7 @@ async function SimulateMomentum(req) {
         const adx = calculateADX(parsedData, adxPeriod);
 
         return parsedData.map((item, i) => ({
-            DATE: item.DATE,
+            DATE: new Date(item.DATE).toISOString().slice(0, 10),
             SHORT: emaShort[i],
             LONG: emaLong[i],
             RSI: rsi[i],
@@ -225,160 +220,595 @@ async function SimulateMomentum(req) {
     //console.log(indicadoresFiltrados);
     //console.log(priceHistoryFiltrado);
 
-    function simularEstrategiaTrading(indicadoresFiltrados, historialPreciosFiltrado, capitalInicial) {
+    //constuir el chart_data ✅
+    function ChartData(priceHistoryFiltrado, indicadoresFiltrados) {
+        return priceHistoryFiltrado.map((precio) => {
+            const fecha = new Date(precio.DATE).toISOString().slice(0, 10);
+            const ind = indicadoresFiltrados.find((i) => i.DATE === fecha) || {};
+
+            return {
+                DATE: fecha,
+                OPEN: precio.OPEN,
+                HIGH: precio.HIGH,
+                LOW: precio.LOW,
+                CLOSE: precio.CLOSE,
+                VOLUME: precio.VOLUME,
+                INDICATORS: [
+                    { INDICATOR: "short_ma", VALUE: ind.SHORT ?? null },
+                    { INDICATOR: "long_ma", VALUE: ind.LONG ?? null },
+                    { INDICATOR: "rsi", VALUE: ind.RSI ?? null },
+                    { INDICATOR: "adx", VALUE: ind.ADX ?? null }
+                ]
+            };
+        });
+    }
+
+
+
+    const chartData = ChartData(priceHistoryFiltrado, indicadoresFiltrados);
+    //console.log(chartData);
+
+    //✅
+    //Comprobar que dias se cumple con las condiciones de los indicadores y generar las señales
+    function simularEstrategiaTrading(indicadoresFiltrados, historialpricesFiltrado) {
         const señales = [];
-        let capital = capitalInicial;
-        let acciones = 0;
 
         for (let i = 1; i < indicadoresFiltrados.length; i++) {
             const anterior = indicadoresFiltrados[i - 1];
             const actual = indicadoresFiltrados[i];
 
-            const precioDia = historialPreciosFiltrado.find(
-                precio => new Date(precio.DATE).toISOString().slice(0, 10) === new Date(actual.DATE).toISOString().slice(0, 10)
+            const priceDia = historialpricesFiltrado.find(
+                price =>
+                    new Date(price.DATE).toISOString().slice(0, 10) ===
+                    new Date(actual.DATE).toISOString().slice(0, 10)
             );
-            if (!precioDia) continue;
+            if (!priceDia) continue;
 
-            const precioCierre = precioDia.CLOSE;
-            const adxSuficiente = actual.ADX > 20;
-            const mediaCortaAnterior = anterior.SHORT;
-            const mediaLargaAnterior = anterior.LONG;
-            const mediaCortaActual = actual.SHORT;
-            const mediaLargaActual = actual.LONG;
+            const precio = priceDia.CLOSE;
+            const volumenAnterior = historialpricesFiltrado[i - 1]?.VOLUME || 0;
+            const volumenActual = priceDia.VOLUME;
 
-            let señalGenerada = false;
+            const adxSubiendo = actual.ADX > 25;
 
-            if (adxSuficiente) {
-                // Señal de compra (golden cross)
-                if (mediaCortaAnterior < mediaLargaAnterior && mediaCortaActual > mediaLargaActual && capital > 0) {
-                    const accionesAComprar = +(capital / precioCierre).toFixed(6);
-                    acciones += accionesAComprar;
-                    señales.push({
-                        DATE: actual.DATE,
-                        TYPE: "compra",
-                        PRICE: precioCierre,
-                        REASONING: "Golden Cross: la media corta cruzó por encima de la media larga",
-                        SHARES: accionesAComprar
-                    });
-                    capital = 0;
-                    señalGenerada = true;
-                }
-                // Señal de venta (death cross)
-                else if (mediaCortaAnterior > mediaLargaAnterior && mediaCortaActual < mediaLargaActual && acciones > 0) {
-                    const ventaCapital = +(acciones * precioCierre).toFixed(2);
-                    señales.push({
-                        DATE: actual.DATE,
-                        TYPE: "venta",
-                        PRICE: precioCierre,
-                        REASONING: "Death Cross: la media corta cruzó por debajo de la media larga",
-                        SHARES: acciones
-                    });
-                    capital += ventaCapital;
-                    acciones = 0;
-                    señalGenerada = true;
-                }
-            }
 
-            if (!señalGenerada) {
+            const rsiCondicion = actual.RSI > 55 && actual.RSI < 75;
+            const volumenSubiendo = volumenActual > volumenAnterior;
+            const cruceAlcista = actual.SHORT > actual.LONG
+
+
+            // COMPRA
+            if (
+                (rsiCondicion &&
+                    adxSubiendo &&
+                    volumenSubiendo) ||
+                (cruceAlcista &&
+                    rsiCondicion &&
+                    adxSubiendo &&
+                    volumenSubiendo)
+            ) {
                 señales.push({
                     DATE: actual.DATE,
-                    TYPE: "",
-                    PRICE: precioCierre,
-                    REASONING: "Ningún cruce detectado o condiciones no favorables, mantener posición",
-                    SHARES: 0
+                    TYPE: 'buy',
+                    PRICE: precio,
+                    REASONING:
+                        'Golden Cross con RSI, ADX y volumen confirmando momentum',
+                });
+            }
+
+            // VENTA - basta con que se cumplan 3 de estas
+            const cruceBajista =
+                anterior.SHORT > anterior.LONG && actual.SHORT < actual.LONG;
+            const precioDebajoMAs =
+                precio < actual.SHORT && precio < actual.LONG;
+            const rsiBaja = actual.RSI < 55;
+            const adxDebil = actual.ADX < 20;
+            const volumenNegativo =
+                (precio > anterior.CLOSE && volumenActual < volumenAnterior) ||
+                (precio < anterior.CLOSE && volumenActual > volumenAnterior);
+
+            const señalesVenta = [
+                cruceBajista,
+                precioDebajoMAs,
+                rsiBaja,
+                adxDebil,
+                volumenNegativo
+            ].filter(Boolean).length;
+
+            if (señalesVenta >= 3) {
+                señales.push({
+                    DATE: actual.DATE,
+                    TYPE: 'sell',
+                    PRICE: precio,
+                    REASONING:
+                        'Múltiples señales de salida detectadas (cruce bajista, RSI bajando, ADX débil, volumen dudoso)',
                 });
             }
         }
 
-        return {
-            SEÑALES: señales,
-            RESULTADO_FINAL: {
-                CAPITAL_FINAL: +capital.toFixed(2),
-                ACCIONES_RESTANTES: +acciones.toFixed(6),
-                VALOR_TOTAL: +(capital + acciones * historialPreciosFiltrado.at(-1).CLOSE).toFixed(2)
-            }
-        };
+        return { SEÑALES: señales };
     }
 
+    //✅ Aplicar la estrategia los dias de las señales 
+    //Vender primero lo primero que se compro, no vender hasta que haya comprado
+    //✅ Generar el resumen financiero
+    function calcularResumenFinanciero(señales, PHF, capitalInicial) {
+        let lotes = []; // [{ cantidad, price, fecha }]
+        let efectivo = capitalInicial;
+        const señalesEjecutadas = [];
 
-    function calcularResumenFinanciero(señales, historialPreciosFiltrado, capitalInicial) {
-        let cash = capitalInicial;
-        let unidadesEnCartera = 0;
         let totalComprado = 0;
         let totalVendido = 0;
-        let costoTotalComprado = 0; // para calcular ganancia real
+        let costoTotalComprado = 0;
+        let gananciaReal = 0;
 
         for (const señal of señales) {
-            console.log(señal);
-            if (!señal.DATE) {
-                console.log("no fecha");
-                continue; // fecha no definida, saltar
-            }
-            const fecha = new Date(señal.DATE);
-            if (isNaN(fecha.getTime())) continue; // fecha inválida, saltar
+            const { DATE, TYPE, PRICE, REASONING } = señal;
 
-            const fechaISO = fecha.toISOString().slice(0, 10);
+            if (TYPE === "buy") {
+                const acciones = +(efectivo / PRICE).toFixed(6);
+                if (acciones > 0) {
+                    efectivo -= acciones * PRICE;
+                    lotes.push({ cantidad: acciones, price: PRICE, fecha: new Date(DATE) });
 
-            const precioDia = historialPreciosFiltrado.find(
-                p => new Date(p.DATE).toISOString().slice(0, 10) === fechaISO
-            );
+                    totalComprado += acciones;
+                    costoTotalComprado += acciones * PRICE;
 
-            if (!precioDia) continue;
-
-            const precio = precioDia.CLOSE;
-
-            if (señal.TYPE === "compra" && señal.SHARES > 0) {
-                const costoOperacion = precio * señal.SHARES;
-                if (costoOperacion <= cash) {
-                    cash -= costoOperacion;
-                    unidadesEnCartera += señal.SHARES;
-                    totalComprado += señal.SHARES;
-                    costoTotalComprado += costoOperacion;
+                    señalesEjecutadas.push({
+                        DATE,
+                        TYPE,
+                        PRICE,
+                        REASONING,
+                        SHARES: acciones
+                    });
                 }
-                // si no hay cash suficiente, ignora la compra (o podrías comprar parcial)
-            } else if (señal.TYPE === "venta" && señal.SHARES > 0) {
-                const unidadesAVender = Math.min(señal.SHARES, unidadesEnCartera);
-                const ingresoOperacion = unidadesAVender * precio;
-                cash += ingresoOperacion;
-                unidadesEnCartera -= unidadesAVender;
-                totalVendido += unidadesAVender;
-                // Para ganancia real simple, podríamos restar costo proporcional a lo vendido
-                costoTotalComprado -= (costoTotalComprado / (unidadesEnCartera + unidadesAVender)) * unidadesAVender;
+
+            } else if (TYPE === "sell") {
+                let totalAcciones = lotes.reduce((sum, lote) => sum + lote.cantidad, 0);
+                let accionesVendidas = 0;
+                if (totalAcciones > 0) {
+                    let accionesAVender = totalAcciones;
+
+                    let ingreso = 0;
+                    let costoVenta = 0;
+
+                    lotes.sort((a, b) => a.fecha - b.fecha); // FIFO
+
+                    for (let i = 0; i < lotes.length && accionesAVender > 0; i++) {
+                        const lote = lotes[i];
+                        const cantidad = Math.min(lote.cantidad, accionesAVender);
+                        ingreso += cantidad * PRICE;
+                        costoVenta += cantidad * lote.price;
+                        lote.cantidad -= cantidad;
+                        accionesAVender -= cantidad;
+                        accionesVendidas += cantidad;
+                    }
+
+                    lotes = lotes.filter(l => l.cantidad > 0); // Eliminar lotes vacíos
+                    efectivo += ingreso;
+
+                    totalVendido += accionesVendidas;
+                    gananciaReal += ingreso - costoVenta;
+                }
+                señalesEjecutadas.push({
+                    DATE,
+                    TYPE,
+                    PRICE,
+                    REASONING,
+                    SHARES: accionesVendidas
+                });
             }
-            // ignoramos "mantener" u otros tipos
         }
 
-        // Precio cierre del último día para valor final
-        const ultimoPrecio = historialPreciosFiltrado.length
-            ? historialPreciosFiltrado[historialPreciosFiltrado.length - 1].CLOSE
+        const accionesRestantes = lotes.reduce((sum, lote) => sum + lote.cantidad, 0);
+        // Obtener price de cierre del último día
+        const priceFinal = PHF.length > 0
+            ? PHF[PHF.length - 1].CLOSE
             : 0;
 
-        const valorFinal = unidadesEnCartera * ultimoPrecio;
-        const balanceFinal = cash + valorFinal;
-        const gananciaReal = balanceFinal - capitalInicial;
+        const resumen = {
+            TOTAL_BOUGHT_UNITS: +totalComprado.toFixed(4),
+            TOTAL_SOLD_UNITS: +totalVendido.toFixed(4),
+            REMAINING_UNITS: +(totalComprado - totalVendido).toFixed(4),
+            FINAL_CASH: +efectivo.toFixed(2),
+            FINAL_VALUE: +(priceFinal !== null ? accionesRestantes * priceFinal : 0).toFixed(2),
+            FINAL_BALANCE: +(efectivo + (priceFinal !== null ? accionesRestantes * priceFinal : 0)).toFixed(2),
+            REAL_PROFIT: +gananciaReal.toFixed(2)
+        };
 
         return {
-            SUMMARY: {
-                TOTAL_BOUGHT_UNITS: +totalComprado.toFixed(4),
-                TOTAL_SOLD_UNITS: +totalVendido.toFixed(4),
-                REMAINING_UNITS: +unidadesEnCartera.toFixed(4),
-                FINAL_CASH: +cash.toFixed(2),
-                FINAL_VALUE: +valorFinal.toFixed(2),
-                FINAL_BALANCE: +balanceFinal.toFixed(2),
-                REAL_PROFIT: +gananciaReal.toFixed(2),
-            },
+            SUMMARY: resumen,
+            SIGNALS: señalesEjecutadas
         };
-    }
+    };
 
 
     //REVISAR SI ESTA BIEN ESTAS COSAS
-    const resultadoSimulacion = simularEstrategiaTrading(indicadoresFiltrados, priceHistoryFiltrado, AMOUNT);
-    //  console.log(resultadoSimulacion)
+    const resultadoSimulacion = simularEstrategiaTrading(indicadoresFiltrados, priceHistoryFiltrado);
     const resumen = calcularResumenFinanciero(resultadoSimulacion.SEÑALES, priceHistoryFiltrado, AMOUNT);
-    console.log(resumen);
+
+    //detail row 
 
 
+    //resultado de la simulacion
+    const simulacion = {
+        SIMULATIONID,
+        USERID,
+        STRATEGYID,
+        SIMULATIONNAME,
+        SYMBOL,
+        INDICATORS: SPECS,
+        AMOUNT,
+        STARTDATE,
+        ENDDATE,
+        SIGNALS: resumen.SIGNALS,
+        SUMMARY: resumen.SUMMARY,
+        CHART_DATA: chartData,
+        DETAIL_ROW: {
+            ACTIVED: true,
+            DELETED: false,
+            DETAIL_ROW_REG: [
+                {
+                    CURRENT: true,
+                    REGDATE: new Date().toISOString().slice(0, 10), // Formato "YYYY-MM-DD"
+                    REGTIME: new Date().toTimeString().slice(0, 8),  // Formato "HH:MM:SS"
+                    REGUSER: USERID
+                }
+            ]
+        }
+    };
+
+    try {
+        const nuevaSimulacion = new SimulationModel(simulacion);
+        await nuevaSimulacion.save();
+        console.log("Simulacion guardada en la base de datos.");
+        //console.log(nuevaSimulacion);
+
+    } catch (error) {
+        return {
+            status: 500,
+            message: error.message
+        }
+    }
+
+    return {
+        simulacion
+    }
 
 }
 
-module.exports = { SimulateMomentum };
+
+async function simulateSupertrend(req) {
+    console.log(req);
+
+
+    try {
+        const { SYMBOL, STARTDATE, ENDDATE, AMOUNT, USERID, SPECS } = req || {};
+
+
+        if (!SYMBOL || !STARTDATE || !ENDDATE || !AMOUNT || !USERID) {
+            throw new Error(
+                "FALTAN PARÁMETROS REQUERIDOS EN EL CUERPO DE LA SOLICITUD: 'SYMBOL', 'STARTDATE', 'ENDDATE', 'AMOUNT', 'USERID'."
+            );
+        }
+
+
+        if (new Date(ENDDATE) < new Date(STARTDATE)) {
+            throw new Error(
+                "La fecha de fin  no puede ser anterior a la fecha de inicio."
+            );
+        }
+
+
+        // Verificar si AMOUNT es numérico
+        if (isNaN(AMOUNT) || typeof AMOUNT !== 'number' || AMOUNT <= 0) {
+            throw new Error("El monto a invertir debe ser una cantidad válida.");
+        }
+
+
+
+        //METODO PARA ASIGNAR UN ID A LA SIMULACION BASADO EN LA FECHA
+        const generateSimulationId = (SYMBOL) => {
+            const date = new Date();
+            const timestamp = date.toISOString().replace(/[^0-9]/g, "");
+            const random = Math.floor(Math.random() * 10000);
+            return `${SYMBOL}_${timestamp}_${random}`;
+        };
+
+
+        const SIMULATIONID = generateSimulationId(SYMBOL);
+        const SIMULATIONNAME = "Estrategia Supertrend + MA";
+        const STRATEGYID = "idST";
+
+
+        //Se buscan los identificadores en SPECS
+        const MALENGTH =
+            parseInt(
+                SPECS?.find((i) => i.INDICATOR?.toLowerCase() === "ma_length")?.VALUE
+            ) || 20;
+        const ATR_PERIOD =
+            parseInt(
+                SPECS?.find((i) => i.INDICATOR?.toLowerCase() === "atr")?.VALUE
+            ) || 10;
+        const MULT =
+            parseFloat(
+                SPECS?.find((i) => i.INDICATOR?.toLowerCase() === "mult")?.VALUE
+            ) || 2.0;
+        const RR =
+            parseFloat(
+                SPECS?.find((i) => i.INDICATOR?.toLowerCase() === "rr")?.VALUE
+            ) || 1.5;
+
+
+        if (isNaN(MALENGTH) || isNaN(ATR_PERIOD) || isNaN(MULT) || isNaN(RR)) {
+            throw new Error(
+                "Los parámetros para la simulación deben ser valores numéricos."
+            );
+        }
+        if (MALENGTH <= 0 || ATR_PERIOD <= 0 || MULT <= 0 || RR <= 0) {
+            throw new Error(
+                "Los parámetros para la simulación deben ser mayores a 0."
+            );
+        }
+
+
+        //Se realiza la consulta de los historicos a AlphaVantage
+        const apiKey = process.env.ALPHA_VANTAGE_KEY || "demo";
+        const apiUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${SYMBOL}&outputsize=full&apikey=${API_KEY}`;
+        const resp = await axios.get(apiUrl);
+
+
+        const rawTs = resp.data["Time Series (Daily)"];
+        if (!rawTs) throw new Error("Respuesta inválida de AlphaVantage");
+
+
+        //Ordena las fechas de forma cronológica
+        const allDatesSorted = Object.keys(rawTs).sort(
+            (a, b) => new Date(a) - new Date(b)
+        );
+
+
+        //Ajusta el indice de inicio
+        const extendedStartIndex =
+            allDatesSorted.findIndex((d) => d >= STARTDATE) -
+            Math.max(MALENGTH, ATR_PERIOD);
+        const adjustedStartIndex = extendedStartIndex >= 0 ? extendedStartIndex : 0; //Si no hay suficientes datos históricos, se inicia desde el primer dato disponible.
+
+
+        //Filtra y mapea los precios
+        const prices = allDatesSorted
+            .slice(adjustedStartIndex) //Toma las fechas desde adjustedStartIndex
+            .filter((date) => date <= ENDDATE) //Filtra fechas posteriores a ENDDATE
+            .map((date) => ({
+                //Convierte cada fecha en un objeto con los datos de precio
+                DATE: date,
+                OPEN: +rawTs[date]["1. open"],
+                HIGH: +rawTs[date]["2. high"],
+                LOW: +rawTs[date]["3. low"],
+                CLOSE: +rawTs[date]["4. close"],
+                VOLUME: +rawTs[date]["5. volume"],
+            }));
+
+
+        //Formula para calcular la Media Móvil Simple (SMA)
+        const sma = (arr, len) =>
+            arr.map((_, i) =>
+                i >= len - 1
+                    ? arr.slice(i - len + 1, i + 1).reduce((a, b) => a + b, 0) / len
+                    : null
+            );
+
+
+        //Formula para calcular el Average True Range (ATR)
+
+
+        const atr = (arr, period) => {
+            const result = Array(arr.length).fill(null);
+            const trValues = []; // Array para almacenar los TR
+
+
+            for (let i = 1; i < arr.length; i++) {
+                const high = arr[i].HIGH;
+                const low = arr[i].LOW;
+                const prevClose = arr[i - 1].CLOSE;
+
+
+                // Calcula el TR y lo guarda en el array
+                const tr = Math.max(
+                    high - low,
+                    Math.abs(high - prevClose),
+                    Math.abs(low - prevClose)
+                );
+                trValues.push(tr);
+
+
+                // Calcula el ATR cuando hay suficientes datos
+                if (i >= period) {
+                    const startIdx = i - period;
+                    const atr =
+                        trValues.slice(startIdx, i).reduce((a, b) => a + b, 0) / period;
+                    result[i] = atr;
+                } else {
+                    result[i] = null;
+                }
+            }
+
+
+            return result;
+        };
+        const closes = prices.map((p) => p.CLOSE); //Se almacena el array de precios de cierre
+        const ma = sma(closes, MALENGTH); //Se almacena el array de MA calculado
+        const atrVals = atr(prices, ATR_PERIOD); //Se almacena el array de ATR calculado
+
+
+        let position = null;
+        const signals = [];
+        let cash = parseFloat(AMOUNT);
+        let shares = 0;
+        let realProfit = 0;
+        const chartData = [];
+
+
+        for (let i = MALENGTH; i < prices.length; i++) {
+            const bar = prices[i];
+            const close = bar.CLOSE;
+            const trendUp = close > ma[i];
+            const trendDown = close < ma[i];
+            const stopDistance = atrVals[i] * MULT;
+            const profitDistance = stopDistance * RR;
+
+
+            let currentSignal = null;
+            let reasoning = null;
+            let profitLoss = 0;
+            let sharesTransacted = 0;
+
+
+            // Lógica de COMPRA (El precio cierra por encima de la MA, y la tendencia es alcista, y el precio del dia anterior estaba por debajo de la MA)
+            if (!position && cash > 0 && trendUp && closes[i - 1] < ma[i - 1]) {
+                const invest = cash * 1; // Invierto todo el capital disponible, previamente solo se usaba el 50%
+                shares = invest / close;
+                cash -= invest;
+                position = {
+                    entryPrice: close,
+                    stop: close - stopDistance,
+                    limit: close + profitDistance,
+                };
+                currentSignal = "buy";
+                reasoning = "Tendencia alcista identificada.";
+                sharesTransacted = shares; // Registrar unidades compradas
+            }
+            // Lógica de VENTA  (El precio alcanza el nivel objetivo o, el precio cae hasta el nivel del stop-loss o, el precio cierra por debajo de la MA)
+            else if (position) {
+                if (close >= position.limit || close <= position.stop || trendDown) {
+                    const soldShares = shares; // Guardar unidades antes de resetear
+                    cash += soldShares * close;
+                    profitLoss = (close - position.entryPrice) * soldShares;
+                    realProfit += profitLoss;
+                    currentSignal = "sell";
+                    if (close >= position.limit) {
+                        reasoning = "Precio objetivo alcanzado.";
+                    }
+                    if (close <= position.stop) {
+                        reasoning = "Stop-loss alcanzado.";
+                    }
+                    if (trendDown) {
+                        reasoning = "Precio por debajo de la MA";
+                    }
+                    sharesTransacted = soldShares; // Registrar unidades vendidas
+                    shares = 0; // Resetear después de registrar
+                    position = null;
+                }
+            }
+
+
+            // Registrar la señal (compra o venta)
+            if (currentSignal) {
+                signals.push({
+                    DATE: bar.DATE,
+                    TYPE: currentSignal,
+                    PRICE: parseFloat(close.toFixed(2)),
+                    REASONING: reasoning,
+                    SHARES: parseFloat(sharesTransacted.toFixed(15)), // Usar sharesTransacted
+                    PROFIT: parseFloat(profitLoss.toFixed(2)),
+                });
+            }
+
+
+            // Datos para el gráfico
+            chartData.push({
+                ...bar,
+                INDICATORS: [
+                    { INDICATOR: "ma", VALUE: parseFloat((ma[i] ?? 0).toFixed(2)) },
+                    { INDICATOR: "atr", VALUE: parseFloat((atrVals[i] ?? 0).toFixed(2)) },
+                ],
+            });
+        }
+
+
+        // Calcular métricas finales
+        const finalValue = shares * prices.at(-1).CLOSE;
+        const finalBalance = cash + finalValue;
+        const percentageReturn = ((finalBalance - AMOUNT) / AMOUNT) * 100;
+
+
+        const summary = {
+            TOTAL_BOUGHT_UNITS: parseFloat(
+                signals
+                    .filter((s) => s.TYPE === "buy")
+                    .reduce((a, s) => a + s.SHARES, 0)
+                    .toFixed(5)
+            ),
+            TOTAL_SOLD_UNITS: parseFloat(
+                signals
+                    .filter((s) => s.TYPE === "sell")
+                    .reduce((a, s) => a + s.SHARES, 0)
+                    .toFixed(5)
+            ),
+            REMAINING_UNITS: parseFloat(shares.toFixed(5)),
+            FINAL_CASH: parseFloat(cash.toFixed(2)),
+            FINAL_VALUE: parseFloat(finalValue.toFixed(2)),
+            FINAL_BALANCE: parseFloat(finalBalance.toFixed(2)),
+            REAL_PROFIT: parseFloat(realProfit.toFixed(2)),
+            PERCENTAGE_RETURN: parseFloat(percentageReturn.toFixed(2)),
+        };
+
+
+        const detailRow = [
+            {
+                ACTIVED: true,
+                DELETED: false,
+                DETAIL_ROW_REG: [
+                    {
+                        CURRENT: true,
+                        REGDATE: new Date().toISOString().slice(0, 10),
+                        REGTIME: new Date().toLocaleTimeString("es-ES", { hour12: false }),
+                        REGUSER: USERID,
+                    },
+                ],
+            },
+        ];
+
+
+
+
+        const simulacion = {
+            SIMULATIONID,
+            USERID,
+            STRATEGYID,
+            SIMULATIONNAME,
+            SYMBOL,
+            INDICATORS: { value: SPECS },
+            AMOUNT: parseFloat(AMOUNT.toFixed(2)),
+            SUMMARY: summary,
+            STARTDATE,
+            ENDDATE,
+            SIGNALS: signals,
+            CHART_DATA: chartData,
+            DETAIL_ROW: detailRow,
+        };
+       
+
+        try {
+            const nuevaSimulacion = new SimulationModel(simulacion);
+            await nuevaSimulacion.save();
+            console.log("Simulacion guardada en la base de datos.");
+            //console.log(nuevaSimulacion);
+
+        } catch (error) {
+            return {
+                status: 500,
+                message: error.message
+            }
+        }
+
+    } catch (error) {
+        console.error("Error en simulación de Supertrend + MA:", error);
+        throw error;
+    }
+}
+
+
+
+
+
+module.exports = { SimulateMomentum, simulateSupertrend };

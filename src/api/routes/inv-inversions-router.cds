@@ -24,7 +24,7 @@ entity Entsimulation as projection on myinv.SIMULATION;
 
   @Core.Description: 'strategies'
   @path: 'strategy'
-      function strategy()
+      action strategy()
       returns array of st;
 
   //Simulacion

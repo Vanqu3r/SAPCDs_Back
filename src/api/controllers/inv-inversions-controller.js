@@ -8,7 +8,7 @@ const { Simulate,
     UpdateSimulationName,
     DeleteSimulation } = require('../services/inv-simulations-service');
 const { StrategyCrud } = require('../services/inv-strategy-service');
-const { SimulateMomentum } = require('../services/inv-simulation-service');
+const { SimulateMomentum,simulateSupertrend } = require('../services/inv-simulation-service');
 
 class InversionsRoute extends cds.ApplicationService {
     async init() {
@@ -68,7 +68,8 @@ class InversionsRoute extends cds.ApplicationService {
                     // Aquí puedes agregar más estrategias en el futuro:
                     // case 'otraEstrategia':
                     //   return await otraFuncionDeEstrategia(body);
-
+                    case "supertrend":
+                        return await simulateSupertrend(body);
                     default:
                         throw new Error(`Estrategia no reconocida: ${strategy}`);
                 }

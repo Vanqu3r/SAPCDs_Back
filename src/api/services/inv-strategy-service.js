@@ -12,14 +12,13 @@ async function StrategyCrud(req) {
                 const strategy = await invStrategy.findOne({ ID });
 
                 if (!strategy) {
-                    return { status: 404, message: 'Strategy not found' };
+                    return { status: 404, message: 'Estrategia no encontrada' };
                 }
 
                 return strategy.toObject();
             } else {
                 // Obtener todas las estrategias
                 const allStrategies = await invStrategy.find();
-
                 return allStrategies.map(s => s.toObject());
             }
         }
@@ -41,12 +40,12 @@ async function StrategyCrud(req) {
 
             return savedStrategy.toObject();
         } else {
-            return { status: 400, message: 'Invalid procedure' };
+            return { status: 400, message: 'Procedure invalido' };
         }
 
     } catch (error) {
         console.error(error);
-        return { status: 500, message: 'An error occurred while processing the request.', error: error.message };
+        return { status: 500, message: 'Ocurrio el siguiente error.', error: error.message };
     }
 }
 
