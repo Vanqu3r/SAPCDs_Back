@@ -33,4 +33,16 @@ const IndicadorSchema = new mongoose.Schema({
   data: { type: [DataPointSchema], required: true }
 }, { timestamps: true });
 
+/*
+const IndicadorSchema = new mongoose.Schema({
+  symbol: { type: String, required: true },
+  name: { type: String, required: true }, // 
+  strategy: { type: String, required: true }, 
+  assetType: { type: String, required: true }, 
+  interval: { type: String, required: true }, 
+  timezone: { type: String, required: true },
+  data: { type: mongoose.Schema.Types.Mixed,   required: true} 
+}, { timestamps: true });*/
+
+
 module.exports = mongoose.model("indicadors", IndicadorSchema,"indicadors");

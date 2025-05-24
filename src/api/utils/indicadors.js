@@ -122,9 +122,17 @@ function calculateIndicators(prices, indicators) {
     MOM: []
   };
 
+  // Inicializa el Set para rastrear los indicadores procesados
+  const indicadoresProcesados = new Set();
+
+  // Lista de indicadores que esperas calcular sí o sí
+  const indicadoresEsperados = ["EMA21", "EMA50", "RSI", "MACD", "ADX", "MOM"];
+
   indicators.forEach((indicator) => {
-    const name = indicator.name.toUpperCase();
-    const label = indicator.label?.toUpperCase() || name;
+    const name = (indicator.name || "").toUpperCase();
+    const label = (indicator.label || name).toUpperCase();
+
+    indicadoresProcesados.add(label);
 
     switch (name) {
       case "EMA":
@@ -148,9 +156,41 @@ function calculateIndicators(prices, indicators) {
         results.MOM = calculateMOM(prices, indicator.period || 10);
         break;
       default:
-        console.warn(`Indicador no reconocido: ${name}`);
+        console.warn(`Indicador no reconocido o nombre ausente: "${name}"`);
     }
   });
+
+  // y si no estan :v
+  indicadoresEsperados.forEach((ind) => {
+    if (!indicadoresProcesados.has(ind)) {
+      switch (ind) {
+        case "RSI":
+          results.RSI = calculateRSI(prices, 14);
+          break;
+        case "MACD":
+          results.MACD = calculateMACD(prices, {
+            fast: indicator.fast || 12,
+            slow: indicator.slow || 26,
+            signal: indicator.signal || 9,
+          });
+          break;
+        case "ADX":
+          results.ADX = calculateADX(prices, 14);
+          break;
+        case "MOM":
+          results.MOM = calculateMOM(prices, 10);
+          break;
+        case "EMA21":
+          results.SHORT = calculateEMA(prices, 21);
+          break;
+        case "EMA50":
+          results.LONG = calculateEMA(prices, 50);
+          break;
+      }
+    }
+  });
+
+  // El resto de tu código (mapear resultados) aquí...
 
   return prices.map((item, i) => ({
     date: item.date,
@@ -163,5 +203,6 @@ function calculateIndicators(prices, indicators) {
     ...(results.MOM.length ? { MOM: results.MOM[i] } : {})
   }));
 }
+
 
 module.exports = { calculateIndicators };

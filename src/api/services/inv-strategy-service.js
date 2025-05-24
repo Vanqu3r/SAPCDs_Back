@@ -15,17 +15,17 @@ async function StrategyCrud(req) {
                     return { status: 404, message: 'Strategy not found' };
                 }
 
-                return strategy.toObject(); // ✅ evita recursión infinita
+                return strategy.toObject();
             } else {
                 // Obtener todas las estrategias
                 const allStrategies = await invStrategy.find();
 
-                return allStrategies.map(s => s.toObject()); // ✅ importante
+                return allStrategies.map(s => s.toObject());
             }
         }
 
         else if (procedure == "post") {
-            console.log("hola");
+
             const data = req.req.body;
             console.log(data);
 
@@ -39,7 +39,7 @@ async function StrategyCrud(req) {
 
             const savedStrategy = await newStrategy.save();
 
-            return savedStrategy.toObject(); // ✅ Aquí está el fix
+            return savedStrategy.toObject();
         } else {
             return { status: 400, message: 'Invalid procedure' };
         }

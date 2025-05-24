@@ -5,10 +5,10 @@ service InversionsRoute @(path:'/api/inv') {
 
   entity indicatores as projection on myinv.indicatores;
   entity st as projection on myinv.strategy;
-  entity simulations as projection on myinv.Simulations;
+  //entity simulations as projection on myinv.Simulations;
   entity symbol as projection on myinv.symbols;
   entity PriceHistory as projection on myinv.PriceHistory;
-
+entity Entsimulation as projection on myinv.SIMULATION;
 
 
  @Core.Description: 'PriceHistory'
@@ -27,7 +27,15 @@ service InversionsRoute @(path:'/api/inv') {
       function strategy()
       returns array of st;
 
-  @Core.Description: 'get-all-simulations'
+  //Simulacion
+
+  @Core.Description: 'simulations'
+  @path: 'simulation'
+  action simulation(SIMULATION:Entsimulation)
+    returns array of Entsimulation;
+
+
+ /* @Core.Description: 'get-all-simulations'
   @path: 'getallsimulations'
   function getallsimulations()
     returns array of simulations;
@@ -46,7 +54,7 @@ service InversionsRoute @(path:'/api/inv') {
   @path: 'deletesimulation'
   action deletesimulation(simulation: simulations)
     returns array of simulations;
-
+*/
     @Core.Description: 'get-all-symbols'
     function company()
         returns array of symbol;     
