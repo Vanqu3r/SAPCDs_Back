@@ -167,7 +167,7 @@ async function getIndicadors(req, res) {
 }
 
 
-//Verificar y retornar PH
+//CORREGIR
 async function checkAndCreateSymbol(symbol, interval, name = symbol) {
   const apiUrl = 'http://localhost:4004/api/inv/priceshistorycrud';
 

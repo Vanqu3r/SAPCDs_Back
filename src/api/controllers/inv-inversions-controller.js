@@ -18,9 +18,7 @@ class InversionsRoute extends cds.ApplicationService {
         /* this.on('simulate', async (req) => {
              return Simulate(req);
          });
-          this.on('priceshistorycrud', async (req) => {
-             return PricesHistoryCrud(req);
-         });
+         
          this.on('getallsimulations', async (req) => {
              return GetAllSimulations(req);
          });
@@ -41,7 +39,7 @@ class InversionsRoute extends cds.ApplicationService {
                 const { strategy } = req?.req?.query || {};
                 const body = req?.req?.body?.SIMULATION || {}; // Aquí está todo el body
 
-               
+
 
                 // Validaciones
                 if (!strategy) {
@@ -60,7 +58,7 @@ class InversionsRoute extends cds.ApplicationService {
                     case "reversionsimple":
                         // Llama a la función reversionSimple con el objeto 'body' directamente.
                         // 'reversionSimple' ya devuelve un objeto JavaScript.
-                       // const result = await reversionSimple(body);
+                        // const result = await reversionSimple(body);
                         // NO uses JSON.parse(result) aquí, porque 'result' ya es un objeto.
                         // El framework se encargará de serializarlo a JSON para la respuesta HTTP.
                         return result; // <-- ¡Esta es la corrección clave!
@@ -84,7 +82,10 @@ class InversionsRoute extends cds.ApplicationService {
                 };
             }
         });
-
+        //pricesHistory
+        this.on('priceshistorycrud', async (req) => {
+            return PricesHistoryCrud(req);
+        });
         //Estrategia CRUD
         this.on('strategy', async (req) => {
             return StrategyCrud(req);

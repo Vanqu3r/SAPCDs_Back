@@ -1,12 +1,10 @@
 const Simulation = require('../models/mongodb/simulations');
 const axios = require('axios');
-
-require('dotenv').config();
+require('dotenv').config();//para usar el .env despues
 const API_KEY = 'BO56AF48GLBDHFVR';
 
 async function SimulateMomentum(req) {
     const { SYMBOL, STARTDATE, ENDDATE, AMOUNT, USERID, SPECS } = req || {};
-
     console.log(req);
     //GENERAR ID pa' la estrategia
     const idStrategy = (symbol, usuario) => {
@@ -15,7 +13,6 @@ async function SimulateMomentum(req) {
         const user = usuario[0];
         return `${symbol}-${timestamp}-${user}`;
     };
-
     //Datos Estaticos para la respuesta
     const SIMULATIONID = idStrategy(SYMBOL, USERID);
     const SIMULATIONNAME = "Estrategia de Momentum";
@@ -33,12 +30,11 @@ async function SimulateMomentum(req) {
             message: `FALTAN PARÁMETROS REQUERIDOS: ${missingParams.join(", ")}.`
         };
     }
-    // ||||||| <---Usos de la API :v Traer PriceHistory
-    const APIURL = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${SYMBOL}&outputsize=full&apikey=${API_KEY}`;
-    const response = await axios.get(APIURL);
-    const data = response.data["Time Series (Daily)"]; // objeto por fechas
-
-    const parsedData = Object.entries(data).map(([date, values]) => ({
+    // ||||||| <---Usos de la API :v Traer PriceHistory DESCOMENTAR DESPUES
+    /* const APIURL = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${SYMBOL}&outputsize=full&apikey=${API_KEY}`;
+     const response = await axios.get(APIURL);
+     const data = response.data["Time Series (Daily)"]; // objeto por fechas
+      const parsedData = Object.entries(data).map(([date, values]) => ({
         DATE: date,
         OPEN: parseFloat(values["1. open"]),
         HIGH: parseFloat(values["2. high"]),
@@ -46,6 +42,15 @@ async function SimulateMomentum(req) {
         CLOSE: parseFloat(values["4. close"]),
         VOLUME: parseFloat(values["5. volume"])
     }));
+    */
+    //PRICEHISTORY DE LA BD XD
+    const apiUrl = 'http://localhost:4004/api/inv/priceshistorycrud';
+    const getUrl = `${apiUrl}?procedure=GET&symbol=${SYMBOL}`;
+    const getResponse = await axios.post(getUrl);
+    const parsedData = getResponse.data?.value?.[0].data;
+    //console.log(parsedData);
+    //FIN DE MI MARRANADA
+
 
     //filtrar por fecha
     function filtrarPorFecha(data, startDate, endDate) {
@@ -217,6 +222,142 @@ async function SimulateMomentum(req) {
     const indicadoresFiltrados = filtrarPorFecha(calculoIndicadores, STARTDATE, ENDDATE);
     //El priceHistory filtrado por fecha priceHistoryFiltrado
     const priceHistoryFiltrado = filtrarPorFecha(parsedData, STARTDATE, ENDDATE);
+    //console.log(indicadoresFiltrados);
+    //console.log(priceHistoryFiltrado);
+
+    function simularEstrategiaTrading(indicadoresFiltrados, historialPreciosFiltrado, capital = 1000) {
+        const señales = [];
+
+        for (let i = 1; i < indicadoresFiltrados.length; i++) {
+            const anterior = indicadoresFiltrados[i - 1];
+            const actual = indicadoresFiltrados[i];
+
+            // Buscar el precio correspondiente por fecha
+            const precioDia = historialPreciosFiltrado.find(
+                precio => new Date(precio.DATE).toISOString().slice(0, 10) === new Date(actual.DATE).toISOString().slice(0, 10)
+            );
+
+            if (!precioDia) continue; // Si no hay precio para esa fecha, saltar
+
+            const precioCierre = precioDia.CLOSE;
+            const adxSuficiente = actual.ADX > 20;
+            const mediaCortaAnterior = anterior.SHORT;
+            const mediaLargaAnterior = anterior.LONG;
+            const mediaCortaActual = actual.SHORT;
+            const mediaLargaActual = actual.LONG;
+
+            let señalGenerada = false;
+
+            if (adxSuficiente) {
+                if (mediaCortaAnterior < mediaLargaAnterior && mediaCortaActual > mediaLargaActual) {
+                    señales.push({
+                        FECHA: actual.DATE,
+                        TIPO: "compra",
+                        PRECIO: precioCierre,
+                        MOTIVO: "Golden Cross: la media corta cruzó por encima de la media larga",
+                        ACCIONES: +(capital / precioCierre).toFixed(6)
+                    });
+                    señalGenerada = true;
+                } else if (mediaCortaAnterior > mediaLargaAnterior && mediaCortaActual < mediaLargaActual) {
+                    señales.push({
+                        DATE: actual.DATE,
+                        TYPE: "venta",
+                        PRICE: precioCierre,
+                        REASONING: "Death Cross: la media corta cruzó por debajo de la media larga",
+                        SHARES: +(capital / precioCierre).toFixed(6)
+                    });
+                    señalGenerada = true;
+                }
+            }
+
+            // Si no se generó señal de compra ni venta, agregar señal mantener
+            if (!señalGenerada) {
+                señales.push({
+                    DATE: actual.DATE,
+                    TYPE: "mantener",
+                    PRICE: precioCierre,
+                    REASONING: "Ningún cruce detectado, mantener posición",
+                    SHARES: 0
+                });
+            }
+        }
+
+        return { SEÑALES: señales };
+    }
+
+    function calcularResumenFinanciero(señales, historialPreciosFiltrado, capitalInicial = 100000) {
+        let cash = capitalInicial;
+        let unidadesEnCartera = 0;
+        let totalComprado = 0;
+        let totalVendido = 0;
+        let costoTotalComprado = 0; // para calcular ganancia real
+
+        for (const señal of señales) {
+            if (!señal.FECHA) continue; // fecha no definida, saltar
+
+            const fecha = new Date(señal.FECHA);
+            if (isNaN(fecha.getTime())) continue; // fecha inválida, saltar
+
+            const fechaISO = fecha.toISOString().slice(0, 10);
+
+            const precioDia = historialPreciosFiltrado.find(
+                p => new Date(p.DATE).toISOString().slice(0, 10) === fechaISO
+            );
+
+            if (!precioDia) continue;
+
+            const precio = precioDia.CLOSE;
+
+            if (señal.TIPO === "compra" && señal.ACCIONES > 0) {
+                const costoOperacion = precio * señal.ACCIONES;
+                if (costoOperacion <= cash) {
+                    cash -= costoOperacion;
+                    unidadesEnCartera += señal.ACCIONES;
+                    totalComprado += señal.ACCIONES;
+                    costoTotalComprado += costoOperacion;
+                }
+                // si no hay cash suficiente, ignora la compra (o podrías comprar parcial)
+            } else if (señal.TIPO === "venta" && señal.ACCIONES > 0) {
+                const unidadesAVender = Math.min(señal.ACCIONES, unidadesEnCartera);
+                const ingresoOperacion = unidadesAVender * precio;
+                cash += ingresoOperacion;
+                unidadesEnCartera -= unidadesAVender;
+                totalVendido += unidadesAVender;
+                // Para ganancia real simple, podríamos restar costo proporcional a lo vendido
+                costoTotalComprado -= (costoTotalComprado / (unidadesEnCartera + unidadesAVender)) * unidadesAVender;
+            }
+            // ignoramos "mantener" u otros tipos
+        }
+
+        // Precio cierre del último día para valor final
+        const ultimoPrecio = historialPreciosFiltrado.length
+            ? historialPreciosFiltrado[historialPreciosFiltrado.length - 1].CLOSE
+            : 0;
+
+        const valorFinal = unidadesEnCartera * ultimoPrecio;
+        const balanceFinal = cash + valorFinal;
+        const gananciaReal = balanceFinal - capitalInicial;
+
+        return {
+            SUMMARY: {
+                TOTAL_BOUGHT_UNITS: +totalComprado.toFixed(4),
+                TOTAL_SOLD_UNITS: +totalVendido.toFixed(4),
+                REMAINING_UNITS: +unidadesEnCartera.toFixed(4),
+                FINAL_CASH: +cash.toFixed(2),
+                FINAL_VALUE: +valorFinal.toFixed(2),
+                FINAL_BALANCE: +balanceFinal.toFixed(2),
+                REAL_PROFIT: +gananciaReal.toFixed(2),
+            },
+        };
+    }
+
+    //REVISAR SI ESTA BIEN ESTAS COSAS
+    const resultadoSimulacion = simularEstrategiaTrading(indicadoresFiltrados, priceHistoryFiltrado, 100000);
+    const resumen = calcularResumenFinanciero(resultadoSimulacion.SEÑALES, priceHistoryFiltrado, 100000);
+    console.log(resumen);
+
+
+
 }
 
 module.exports = { SimulateMomentum };
