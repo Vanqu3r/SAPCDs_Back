@@ -24,7 +24,7 @@ entity Entsimulation as projection on myinv.SIMULATION;
 
   @Core.Description: 'strategies'
   @path: 'strategy'
-      action strategy()
+      function strategy()
       returns array of st;
 
   //Simulacion
@@ -58,6 +58,13 @@ entity Entsimulation as projection on myinv.SIMULATION;
     @Core.Description: 'get-all-symbols'
     function company()
         returns array of symbol;     
+
+  @Core.Description: 'simulationsCRUD'
+  @path: 'simulationCrud'
+  action simulationCrud( SIMULATIONNAME : String)
+    returns array of Entsimulation;
+
+
 }
 type IndicatorInput: {
   name: String;

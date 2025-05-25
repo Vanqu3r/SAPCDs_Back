@@ -10,6 +10,7 @@ const {
   DeleteSimulation,
 } = require("../services/inv-simulations-service");
 const { StrategyCrud } = require("../services/inv-strategy-service");
+const { simulationCRUD } = require("../services/inv-CrudSimulation")
 const {
   SimulateMomentum,
   simulateSupertrend,
@@ -90,6 +91,12 @@ class InversionsRoute extends cds.ApplicationService {
     this.on("company", async (req) => {
       return getAllSymbols(req);
     });
+
+    //Simulation crud
+        this.on('simulationCrud', async (req) => {
+            return simulationCRUD(req);
+        });
+
 
     //more functions
     return await super.init();
