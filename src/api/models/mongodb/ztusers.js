@@ -20,6 +20,7 @@ const UsersSchema = new mongoose.Schema({
         FIRSTNAME : {type:String},
         LASTNAME : {type:String},
         EMAIL    : {type:String},
+        PASSWORD : {type:String},
         BIRTHDAYDATE : {type:Date},
         COMPANYID : {type:Number},
         COMPANYNAME :{type:String},

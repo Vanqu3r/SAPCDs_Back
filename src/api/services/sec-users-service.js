@@ -5,8 +5,8 @@ const usersComplete = require('../models/mongodb/usersComplete');
 const validarRol = async (roles) => {
     try {
         console.log("Entra a la funcion de validacion");
-        if(roles.length === 0){
-            return;
+        if(!roles || roles.length === 0){
+            return roles;
         }
         let rolesId = [];
         roles.forEach( r => {
@@ -75,7 +75,8 @@ async function GetAllUsers() {
 
         return allUsers;
     } catch (error) {
-        return error;
+        console.log("Error en userCRUD:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -91,7 +92,8 @@ async function GetOneUser(userid) {
 
         return user;
     } catch (error) {
-        return error;
+        console.log("Error en userCRUD:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -102,28 +104,28 @@ async function PostUser(req) {
         console.log("Usuario recibido: ",newUser);
         console.log("Entra al Metodo del servicio de post");
         if(!newUser){throw new Error('No envió los datos del usuario a agregar');}
+        console.log("CAMBIOS 1:",newUser);
         //Validar los roles//Validar los roles
         const rol = await validarRol(newUser.ROLES);
-        console.log("CAMBIOS 1:",newUser);
+        
         console.log("ROL: ",rol);
         newUser.ROLES = rol;
         console.log("CAMBIOS 2:",newUser);
 
-        const createdUser = new UsersSchema(newUser);
-
+        const createdUser = await UsersSchema.create(newUser)//new UsersSchema(newUser); //
+        console.log("TUSI ??",createdUser);
         await createdUser.save();
 
         return createdUser.toObject();
     } catch (error) {
-        return error;
+        console.log("Error en userCRUD:",error);
+        return { error: true, message: error.message };
     }
 }
 
 async function UpdateUser(req,userid){
     try{
         const cambios = req.req.body;
-        if(!cambios){throw new Error('No envió los datos del usuario a agregar');}
-        //VALIDAR ROLES
         if(!cambios){throw new Error('No envió los datos del usuario a agregar');}
         //VALIDAR ROLES
         const rol = await validarRol(cambios.ROLES);
@@ -144,7 +146,8 @@ async function UpdateUser(req,userid){
 
         return user.toObject();
     }catch(error){
-        return error;
+        console.log("Error en userCRUD:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -161,7 +164,8 @@ async function LogDelete(userid){
 
         return user.toObject();
     } catch (error) {
-        return error;
+        console.log("Error en userCRUD:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -174,7 +178,8 @@ async function HardDelete(userid) {
 
         return {mensaje:'Usuario eliminado con exito y para siempre'};
     } catch (error) {
-        return error;
+        console.log("Error en userCRUD:",error);
+        return { error: true, message: error.message };
     }
 }
 
