@@ -32,7 +32,7 @@ async function RolesCRUD(req) {
 
     // GET ALL ------------------------------------
     if (procedure === 'get' && type === 'all') {
-        //por si pasa un IDROLE
+      //por si pasa un IDROLE
       const matchStage = roleid ? [{ $match: { ROLEID: roleid } }] : [];
 
       // CONSULTA PARA ROLES
@@ -329,13 +329,16 @@ async function RolesCRUD(req) {
     } else if (req.req.query.procedure === 'post') {
 
       const nuevoRol = req.req.body;
+      // Validar que ya no exista un ROLEID igual
+      const existente = await RoleSchema.findOne({ ROLEID: nuevoRol.ROLEID });
+      if (existente) {
+        throw new Error(`Ya existe un rol con el ROLEID: ${nuevoRol.ROLEID}`);
+      }
+
       await validarProcessIds(nuevoRol.PRIVILEGES);
 
       const nuevoRolito = await RoleSchema.create(nuevoRol);
       result = nuevoRolito.toObject();
-
-
-
 
       // DELETE ----------------------------
     } else if (procedure === 'delete') {
@@ -384,6 +387,14 @@ async function RolesCRUD(req) {
         throw new Error('No se proporcionan campos para actualizar');
       }
 
+      // Validar que no se cambie el ROLEID a uno duplicado
+      if (camposActualizar.ROLEID && camposActualizar.ROLEID !== roleid) {
+        const yaExiste = await RoleSchema.findOne({ ROLEID: camposActualizar.ROLEID });
+        if (yaExiste) {
+          throw new Error(`Ya existe un rol con el ROLEID: ${camposActualizar.ROLEID}`);
+        }
+      }
+
       //SI HAY PRIVILEGIOS A ACTUALIZAR SE LLAMA LA FUNCION PARA VALIDAR ESA COSA
       if (camposActualizar.PRIVILEGES) {
         await validarProcessIds(camposActualizar.PRIVILEGES);
@@ -394,7 +405,11 @@ async function RolesCRUD(req) {
 
 
       // Actualizar campos manualmente
-      Object.assign(existing, camposActualizar);
+      if (camposActualizar.ROLEID) existing.ROLEID = camposActualizar.ROLEID;
+      if (camposActualizar.ROLENAME) existing.ROLENAME = camposActualizar.ROLENAME;
+      if (camposActualizar.DESCRIPTION) existing.DESCRIPTION = camposActualizar.DESCRIPTION;
+      if (Array.isArray(camposActualizar.PRIVILEGES)) existing.PRIVILEGES = camposActualizar.PRIVILEGES;
+
 
       // Actualizar el registro de la actualización
       const now = new Date();
@@ -431,8 +446,9 @@ async function RolesCRUD(req) {
 
   } catch (error) {
     console.error('Error en RolesCRUD:', error);
-    return { error: true, message: error.message };
+    req.reject(400, error.message);
   }
+
 }
 
 
