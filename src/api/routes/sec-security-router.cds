@@ -92,4 +92,25 @@ service SecurityRoute @(path: '/api/sec') {
     @path: 'usersCRUD'
         action usersCRUD()
         returns array of users;
+
+    //GET ALL USERS
+    // http://localhost:4004/api/sec/usersCRUD?procedure=getall
+
+    //GET USER BY ID
+    //http://localhost:4004/api/sec/usersCRUD?procedure=getone&userid=DULCEADILENE
+
+    //POST USER
+    //http://localhost:4004/api/sec/usersCRUD?procedure=post
+
+    //Y su Body correspondiente
+
+    //PATCH USER
+    // http://localhost:4004/api/sec/usersCRUD?procedure=patch&userid=user002
+
+    //BORRADO LOGICO
+    //http://localhost:4004/api/sec/usersCRUD?procedure=delete&type=logic&userid=user002
+
+    //BORRADO FISICO
+    //http://localhost:4004/api/sec/usersCRUD?procedure=delete&type=hard&userid=user002
 }
+
