@@ -5,8 +5,8 @@ const usersComplete = require('../models/mongodb/usersComplete');
 const validarRol = async (roles) => {
     try {
         console.log("Entra a la funcion de validacion");
-        if(roles.length === 0){
-            return;
+        if(!roles || roles.length === 0){
+            return roles;
         }
         let rolesId = [];
         roles.forEach( r => {
@@ -75,7 +75,8 @@ async function GetAllUsers() {
 
         return allUsers;
     } catch (error) {
-        return error;
+        console.log("Error en getAllUsers:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -91,7 +92,8 @@ async function GetOneUser(userid) {
 
         return user;
     } catch (error) {
-        return error;
+        console.log("Error en getOneUser:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -115,7 +117,8 @@ async function PostUser(req) {
 
         return createdUser.toObject();
     } catch (error) {
-        return error;
+        console.log("Error en postUser:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -142,7 +145,8 @@ async function UpdateUser(req,userid){
 
         return user.toObject();
     }catch(error){
-        return error;
+        console.log("Error en updateUser:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -159,7 +163,8 @@ async function LogDelete(userid){
 
         return user.toObject();
     } catch (error) {
-        return error;
+        console.log("Error en logDelete:",error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -172,7 +177,8 @@ async function HardDelete(userid) {
 
         return {mensaje:'Usuario eliminado con exito y para siempre'};
     } catch (error) {
-        return error;
+        console.log("Error en hardDelete:",error);
+        return { error: true, message: error.message };
     }
 }
 

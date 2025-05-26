@@ -37,6 +37,7 @@ const UsersSchema = new mongoose.Schema({
         STATE: {type:String},
         COUNTRY: {type:String},
         AVATAR: {type:String},
+        PASSWORD : {type:String},
         ROLES: {
                 type: [{
                   ROLEID: { type: String },
