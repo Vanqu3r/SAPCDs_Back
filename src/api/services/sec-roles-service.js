@@ -387,6 +387,14 @@ async function RolesCRUD(req) {
         throw new Error('No se proporcionan campos para actualizar');
       }
 
+      // Validar que no se cambie el ROLEID a uno duplicado
+      if (camposActualizar.ROLEID && camposActualizar.ROLEID !== roleid) {
+        const yaExiste = await RoleSchema.findOne({ ROLEID: camposActualizar.ROLEID });
+        if (yaExiste) {
+          throw new Error(`Ya existe un rol con el ROLEID: ${camposActualizar.ROLEID}`);
+        }
+      }
+
       //SI HAY PRIVILEGIOS A ACTUALIZAR SE LLAMA LA FUNCION PARA VALIDAR ESA COSA
       if (camposActualizar.PRIVILEGES) {
         await validarProcessIds(camposActualizar.PRIVILEGES);
@@ -397,7 +405,11 @@ async function RolesCRUD(req) {
 
 
       // Actualizar campos manualmente
-      Object.assign(existing, camposActualizar);
+      if (camposActualizar.ROLEID) existing.ROLEID = camposActualizar.ROLEID;
+      if (camposActualizar.ROLENAME) existing.ROLENAME = camposActualizar.ROLENAME;
+      if (camposActualizar.DESCRIPTION) existing.DESCRIPTION = camposActualizar.DESCRIPTION;
+      if (Array.isArray(camposActualizar.PRIVILEGES)) existing.PRIVILEGES = camposActualizar.PRIVILEGES;
+
 
       // Actualizar el registro de la actualización
       const now = new Date();
@@ -433,9 +445,9 @@ async function RolesCRUD(req) {
     return JSON.parse(JSON.stringify(result));
 
   } catch (error) {
-  console.error('Error en RolesCRUD:', error);
-  req.reject(400, error.message); 
-}
+    console.error('Error en RolesCRUD:', error);
+    req.reject(400, error.message);
+  }
 
 }
 
