@@ -13,11 +13,10 @@ const detailRowSchema = new mongoose.Schema({
   DETAIL_ROW_REG: { type: [detailRowRegSchema], default: [] }
 }, { _id: false });
 
-const indicator = new mongoose.Schema({
-  ID     :{ type: String, required: true }, 
+ const indicator = new mongoose.Schema({
   NAME    :{ type: String, required: true },
   DESCRIPTION     :{ type: String, required: true }
-})
+},{ _id: false });
 
 const strategy = new mongoose.Schema({
   ID     :{ type: String, required: true }, 
