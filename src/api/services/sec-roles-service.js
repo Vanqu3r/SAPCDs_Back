@@ -32,7 +32,7 @@ async function RolesCRUD(req) {
 
     // GET ALL ------------------------------------
     if (procedure === 'get' && type === 'all') {
-        //por si pasa un IDROLE
+      //por si pasa un IDROLE
       const matchStage = roleid ? [{ $match: { ROLEID: roleid } }] : [];
 
       // CONSULTA PARA ROLES
@@ -329,13 +329,16 @@ async function RolesCRUD(req) {
     } else if (req.req.query.procedure === 'post') {
 
       const nuevoRol = req.req.body;
+      // Validar que ya no exista un ROLEID igual
+      const existente = await RoleSchema.findOne({ ROLEID: nuevoRol.ROLEID });
+      if (existente) {
+        throw new Error(`Ya existe un rol con el ROLEID: ${nuevoRol.ROLEID}`);
+      }
+
       await validarProcessIds(nuevoRol.PRIVILEGES);
 
       const nuevoRolito = await RoleSchema.create(nuevoRol);
       result = nuevoRolito.toObject();
-
-
-
 
       // DELETE ----------------------------
     } else if (procedure === 'delete') {
@@ -430,9 +433,10 @@ async function RolesCRUD(req) {
     return JSON.parse(JSON.stringify(result));
 
   } catch (error) {
-    console.error('Error en RolesCRUD:', error);
-    return { error: true, message: error.message };
-  }
+  console.error('Error en RolesCRUD:', error);
+  req.reject(400, error.message); 
+}
+
 }
 
 
