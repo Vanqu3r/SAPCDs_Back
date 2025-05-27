@@ -3,12 +3,7 @@ const cds = require("@sap/cds");
 const { PricesHistoryCrud } = require("../services/inv-priceshistory-service");
 const { getIndicadors } = require("../services/inv-indicadors-service");
 const { getAllSymbols } = require("../services/inv-symbols-service");
-const {
-  Simulate,
-  GetAllSimulations,
-  UpdateSimulationName,
-  DeleteSimulation,
-} = require("../services/inv-simulations-service");
+
 const { StrategyCrud } = require("../services/inv-strategy-service");
 const { simulationCRUD } = require("../services/inv-CrudSimulation")
 const {

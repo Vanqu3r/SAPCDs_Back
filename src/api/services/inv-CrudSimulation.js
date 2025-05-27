@@ -29,12 +29,15 @@ async function simulationCRUD(req) {
             }
 
             case 'getone': {
-                const simulationName = query?.simulationName;
-                if (!simulationName) {
-                    return { status: 400, error: 'Nombre de simulación requerido' };
+                const id = query?.simulationId;
+                if (!id) {
+                    return { status: 400, error: 'ID de simulación requerido' };
                 }
 
-                const results = await simulationModel.findOne({ SIMULATIONNAME: simulationName, USERID: RegUser }).lean();
+                const results = await simulationModel.findOne({
+                    SIMULATIONID: id,
+                    USERID: RegUser
+                }).lean();
                 if (!results) {
                     return { status: 404, error: 'Simulación no encontrada para este usuario' };
                 }

@@ -773,6 +773,7 @@ async function simulateSupertrend(req) {
       await nuevaSimulacion.save();
       console.log("Simulacion guardada en la base de datos.");
       //console.log(nuevaSimulacion);
+      return simulacion;
     } catch (error) {
       return {
         status: 500,
