@@ -9,6 +9,7 @@ async function simulationCRUD(req) {
     const data = req.data;
     const procedure = query?.procedure;
     const RegUser = query?.RegUser;
+    const type = query?.type;
     console.log(data);
 
     if (!procedure) {
@@ -21,6 +22,7 @@ async function simulationCRUD(req) {
     try {
         switch (procedure.toLowerCase()) {
             case 'getall': {
+                if (!RegUser) {return { status: 400, error: 'RegUser es requerido para esta operación' };}
                 const results = await simulationModel.find({ USERID: RegUser }).lean();
                 if (!results || results.length === 0) {
                     return { status: 404, message: 'No se encontraron simulaciones para este usuario' };
@@ -30,8 +32,8 @@ async function simulationCRUD(req) {
 
             case 'getone': {
                 const id = query?.simulationId;
-                if (!id) {
-                    return { status: 400, error: 'ID de simulación requerido' };
+                if (!id || !RegUser) {
+                    return { status: 400, error: 'SimulationID y RegUser son requeridos para esta operación' };
                 }
 
                 const results = await simulationModel.findOne({
@@ -46,6 +48,9 @@ async function simulationCRUD(req) {
 
             case 'getbyrangedate': {
                 const { startDate, endDate } = query;
+
+                if(!RegUser) { return { status: 400, error: 'RegUser es requerido para esta operación' }; }
+
                 if (!startDate || !endDate) {
                     return { status: 400, error: 'startDate y endDate son requeridos' };
                 }
@@ -66,6 +71,8 @@ async function simulationCRUD(req) {
             case 'getbyrangeinv': {
                 const minAmount = parseFloat(query?.minAmount);
                 const maxAmount = parseFloat(query?.maxAmount);
+
+                if(!RegUser) { return { status: 400, error: 'RegUser es requerido para esta operación' }; }
 
                 if (isNaN(minAmount)) {
                     return { status: 400, error: 'minAmount debe ser un número válido' };
@@ -103,6 +110,8 @@ async function simulationCRUD(req) {
                     return { status: 400, error: 'minReturn debe ser un número válido' };
                 }
 
+                if(!RegUser) { return { status: 400, error: 'RegUser es requerido para esta operación' }; }
+
                 const results = await simulationModel.find({
                     USERID: RegUser,
                     'SUMMARY.REAL_PROFIT': { $gte: minReturn }
@@ -117,8 +126,8 @@ async function simulationCRUD(req) {
 
             case 'update': {
                 const id = query.simulationId;
-                if (!id) {
-                    return { status: 400, error: 'ID es requerido para actualización' };
+                if (!id || !RegUser) {
+                    return { status: 400, error: 'SimulationID y RegUser son requeridos para actualización' };
                 }
 
                 if (!data || Object.keys(data).length === 0) {
@@ -179,21 +188,101 @@ async function simulationCRUD(req) {
 
 
             case 'delete': {
+                if (type === 'hard'){
+                    const id = query.simulationId;
+                    if (!id) {
+                        return { status: 400, error: 'ID es requerido para eliminación' };
+                    }
+
+                    const simulation = await simulationModel.findOne({
+                        SIMULATIONID: id,
+                        USERID: RegUser
+                    });
+                    if (!simulation) {
+                        return { status: 404, error: 'Simulación no encontrada para eliminación o Usuario no autorizado' };
+                    }
+
+                    await simulationModel.findByIdAndDelete(simulation._id);
+                    return { status: 200, message: 'Simulación eliminada correctamente' };
+
+                } else if (type === 'logic') {
+                    const id = query.simulationId;
+                    if (!id || !RegUser) {
+                        return { status: 400, error: 'SimulationID y RegUser son requeridos para eliminación' };
+                    }
+
+                    const simulation = await simulationModel.findOne({
+                        SIMULATIONID: id,
+                        USERID: RegUser
+                    });
+                    if (!simulation) {
+                        return { status: 404, error: 'Simulación no encontrada para eliminación o Usuario no autorizado' };
+                    }
+
+                    // Preparar la nueva entrada de auditoría colocando las anteriores como no actuales (current = false)
+                    const now = new Date();
+
+                    if (!Array.isArray(simulation.DETAIL_ROW.DETAIL_ROW_REG)) {
+                        simulation.DETAIL_ROW.DETAIL_ROW_REG = [];
+                    } else {
+                        simulation.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+                            if (reg.CURRENT) reg.CURRENT = false;
+                        });
+                    }
+
+                    simulation.DETAIL_ROW.ACTIVED = false;
+                    simulation.DETAIL_ROW.DELETED = true;
+
+                    simulation.DETAIL_ROW.DETAIL_ROW_REG.push({
+                        CURRENT: true,
+                        REGDATE: now.toISOString().slice(0, 10),
+                        REGTIME: now.toTimeString().slice(0, 8),
+                        REGUSER: RegUser
+                    });
+
+                    await simulation.save();
+                    return { status: 200, message: 'Simulación eliminada logicamente de manera correcta' };
+                }
+            }
+
+            case 'activate': {
                 const id = query.simulationId;
-                if (!id) {
-                    return { status: 400, error: 'ID es requerido para eliminación' };
+                if (!id || !RegUser) {
+                    return { status: 400, error: 'SimulationID y RegUser son requeridos para activación' };
                 }
 
                 const simulation = await simulationModel.findOne({
                     SIMULATIONID: id,
                     USERID: RegUser
                 });
+
                 if (!simulation) {
-                    return { status: 404, error: 'Simulación no encontrada para eliminación o Usuario no autorizado' };
+                    return { status: 404, error: 'Simulación no encontrada para activación o Usuario no autorizado' };
                 }
 
-                await simulationModel.findByIdAndDelete(simulation._id);
-                return { status: 200, message: 'Simulación eliminada correctamente' };
+                // Preparar la nueva entrada de auditoría colocando las anteriores como no actuales (current = false)
+                const now = new Date();
+
+                if (!Array.isArray(simulation.DETAIL_ROW.DETAIL_ROW_REG)) {
+                    simulation.DETAIL_ROW.DETAIL_ROW_REG = [];
+                } else {
+                    simulation.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => {
+                        if (reg.CURRENT) reg.CURRENT = false;
+                    });
+                }
+
+                simulation.DETAIL_ROW.ACTIVED = true;
+                simulation.DETAIL_ROW.DELETED = false;
+
+                simulation.DETAIL_ROW.DETAIL_ROW_REG.push({
+                    CURRENT: true,
+                    REGDATE: now.toISOString().slice(0, 10),
+                    REGTIME: now.toTimeString().slice(0, 8),
+                    REGUSER: RegUser
+                });
+
+                await simulation.save();
+                return { status: 200, message: 'Simulación activada de manera correcta' };
             }
 
             default:
