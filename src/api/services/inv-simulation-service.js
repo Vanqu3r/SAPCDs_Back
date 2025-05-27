@@ -138,7 +138,7 @@ async function SimulateMomentum(req) {
       minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
     }
 
-    // Wilder's smoothing
+    // suavizado asi bien suave
     function smooth(values, period) {
       let smoothed = [];
       let sum = values.slice(0, period).reduce((a, b) => a + b, 0);
@@ -492,6 +492,9 @@ async function SimulateMomentum(req) {
     simulacion,
   };
 }
+
+/// ---------RESTO DE ESTRATEGIAS ------ 
+
 
 async function simulateSupertrend(req) {
   console.log(req);

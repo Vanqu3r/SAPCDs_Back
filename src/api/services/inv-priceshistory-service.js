@@ -1,7 +1,7 @@
 const ztpriceshistory = require('../models/mongodb/ztpriceshistory');
 const axios = require("axios");
 
-const API_KEY = 'BO56AF48GLBDHFVR'; // Asegúrate de definir tu API key
+const API_KEY = 'BO56AF48GLBDHFVR'; 
 
 async function PricesHistoryCrud(req) {
     const { procedure, type } = req.req.query;
