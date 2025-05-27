@@ -1054,7 +1054,7 @@ async function reversionSimple(req) {
         LOW: parseFloat(LOW.toFixed(2)),
         CLOSE: parseFloat(PRICE.toFixed(2)),
         VOLUME: parseFloat(VOLUME.toFixed(0)), // Volumen como entero
-        INDICATOR: [
+        INDICATORS: [
           { INDICATOR: "sma", VALUE: parseFloat((SMA ?? 0).toFixed(2)) },
           { INDICATOR: "rsi", VALUE: parseFloat((RSI ?? 0).toFixed(2)) },
         ],

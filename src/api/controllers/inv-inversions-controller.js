@@ -17,9 +17,7 @@ class InversionsRoute extends cds.ApplicationService {
   async init() {
     this.on("simulation", async (req) => {
       try {
-        // Extraer 'strategy' de los query params y datos del body
-        // Asegúrate de que 'req.req.query' y 'req.req.body.simulation' son las rutas correctas
-        // para acceder a estos datos en tu entorno CDS.
+      
         const { strategy } = req?.req?.query || {};
         const body = req?.req?.body?.SIMULATION || {}; // Aquí está todo el body
 
