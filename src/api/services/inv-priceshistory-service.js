@@ -1,7 +1,7 @@
 const ztpriceshistory = require('../models/mongodb/ztpriceshistory');
 const axios = require("axios");
 
-const API_KEY = 'BO56AF48GLBDHFVR'; // API key
+const API_KEY = 'IRRGQ7B4EPAHDVDK'; // API key
 
 async function PricesHistoryCrud(req) {
     const { procedure, type } = req.req.query;
@@ -29,7 +29,14 @@ async function PricesHistoryCrud(req) {
         } else if (procedure === "GET" && type === 'ALPHA') {
             const { symbol, interval, name } = req.req.query;
             const result = await getPriceHistory(symbol, "1d", name, procedure, API_KEY);
-            return result;
+            return {
+                symbol: result.result.symbol,
+                interval: result.result.interval,
+                name: result.result.name,
+                timezone: result.result.timezone,
+                assetType: result.result.assetType,
+                data: result.result.data
+            };
         } else if (procedure === "GET") {
             const { symbol, startDate, endDate } = req.req.query;
 
