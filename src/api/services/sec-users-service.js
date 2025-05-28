@@ -1,6 +1,6 @@
 const UsersSchema = require('../models/mongodb/ztusers');
 const RoleSchema = require('../models/mongodb/ztroles');
-const usersComplete = require('../models/mongodb/usersComplete');
+// const usersComplete = require('../models/mongodb/usersComplete');
 
 const validarRol = async (roles) => {
     try {
@@ -69,32 +69,555 @@ async function UsersCRUD(req) {
 }
 
 async function GetAllUsers() {
-    try {
-        //const allUsers = await UsersSchema.find().lean();
-        const allUsers = await usersComplete.find().lean();
+  try {
+    const pipeline = [
+      // Desenvuelve el arreglo de roles para que cada documento tenga un rol individual
+      {
+        "$unwind": {
+          "path": "$ROLES",
+          "preserveNullAndEmptyArrays": true
+        }
+      },
+      // Lookup en ZTEROLES para enriquecer cada rol a partir de su ROLEID
+      {
+        "$lookup": {
+          "from": "ZTEROLES",
+          "let": { "roleId": "$ROLES.ROLEID" },
+          "pipeline": [
+            {
+              "$match": {
+                "$expr": { "$eq": [ "$ROLEID", "$$roleId" ] }
+              }
+            },
+            { "$unwind": "$PRIVILEGES" },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "rawProcessId": "$PRIVILEGES.PROCESSID" },
+                "pipeline": [
+                  {
+                    "$addFields": {
+                      "cleanProcessId": {
+                        "$replaceOne": {
+                          "input": "$$rawProcessId",
+                          "find": "IdProcess-",
+                          "replacement": ""
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdProcesses" ] },
+                          { "$eq": [ "$VALUEID", "$cleanProcessId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "PROCESSID": "$VALUEID",
+                      "PROCESSNAME": "$VALUE",
+                      "VIEWID": "$VALUEPAID"
+                    }
+                  }
+                ],
+                "as": "processInfo"
+              }
+            },
+            { "$unwind": "$processInfo" },
+            {
+              "$addFields": {
+                "PROCESSNAME": "$processInfo.PROCESSNAME",
+                "VIEWID": "$processInfo.VIEWID"
+              }
+            },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "rawViewId": "$VIEWID" },
+                "pipeline": [
+                  {
+                    "$addFields": {
+                      "cleanViewId": {
+                        "$replaceOne": {
+                          "input": "$$rawViewId",
+                          "find": "IdViews-",
+                          "replacement": ""
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdViews" ] },
+                          { "$eq": [ "$VALUEID", "$cleanViewId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "VIEWNAME": "$VALUE",
+                      "APPLICATIONID": "$VALUEPAID"
+                    }
+                  }
+                ],
+                "as": "viewInfo"
+              }
+            },
+            {
+              "$unwind": {
+                "path": "$viewInfo",
+                "preserveNullAndEmptyArrays": true
+              }
+            },
+            {
+              "$addFields": {
+                "VIEWNAME": "$viewInfo.VIEWNAME",
+                "APPLICATIONID": "$viewInfo.APPLICATIONID"
+              }
+            },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "rawAppId": "$APPLICATIONID" },
+                "pipeline": [
+                  {
+                    "$addFields": {
+                      "cleanAppId": {
+                        "$replaceOne": {
+                          "input": "$$rawAppId",
+                          "find": "IdApplications-",
+                          "replacement": ""
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdApplications" ] },
+                          { "$eq": [ "$VALUEID", "$cleanAppId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "APPLICATIONNAME": "$VALUE"
+                    }
+                  }
+                ],
+                "as": "appInfo"
+              }
+            },
+            {
+              "$unwind": {
+                "path": "$appInfo",
+                "preserveNullAndEmptyArrays": true
+              }
+            },
+            {
+              "$addFields": {
+                "APPLICATIONNAME": "$appInfo.APPLICATIONNAME"
+              }
+            },
+            { "$unwind": "$PRIVILEGES.PRIVILEGEID" },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "privilegeId": "$PRIVILEGES.PRIVILEGEID" },
+                "pipeline": [
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdPrivileges" ] },
+                          { "$eq": [ "$VALUEID", "$$privilegeId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "PRIVILEGENAME": "$VALUE"
+                    }
+                  }
+                ],
+                "as": "privInfo"
+              }
+            },
+            { "$unwind": "$privInfo" },
+            {
+              "$addFields": {
+                "PRIVILEGES.PRIVILEGENAME": "$privInfo.PRIVILEGENAME"
+              }
+            },
+            // Agrupar los resultados de este lookup para dejar la estructura enriquecida del rol
+            {
+              "$group": {
+                "_id": {
+                  "ROLEID": "$ROLEID",
+                  "ROLENAME": "$ROLENAME",
+                  "DESCRIPTION": "$DESCRIPTION",
+                  "PROCESSID": "$processInfo.VALUEID",
+                  "PROCESSNAME": "$PROCESSNAME",
+                  "VIEWID": "$viewInfo.VALUEID",
+                  "VIEWNAME": "$VIEWNAME",
+                  "APPLICATIONID": "$appInfo.VALUEID",
+                  "APPLICATIONNAME": "$APPLICATIONNAME"
+                },
+                "PRIVILEGES": {
+                  "$push": {
+                    "PRIVILEGEID": "$PRIVILEGES.PRIVILEGEID",
+                    "PRIVILEGENAME": "$PRIVILEGES.PRIVILEGENAME"
+                  }
+                }
+              }
+            },
+            {
+              "$project": {
+                "_id": 0,
+                "ROLEID": "$_id.ROLEID",
+                "ROLENAME": "$_id.ROLENAME",
+                "DESCRIPTION": "$_id.DESCRIPTION",
+                "PROCESSES": {
+                  "$arrayElemAt": [
+                    [{
+                      "PROCESSID": "$_id.PROCESSID",
+                      "PROCESSNAME": "$_id.PROCESSNAME",
+                      "VIEWID": "$_id.VIEWID",
+                      "VIEWNAME": "$_id.VIEWNAME",
+                      "APPLICATIONID": "$_id.APPLICATIONID",
+                      "APPLICATIONNAME": "$_id.APPLICATIONNAME",
+                      "PRIVILEGES": "$PRIVILEGES"
+                    }], 0
+                  ]
+                }
+              }
+            }
+          ],
+          "as": "enrichedRole"
+        }
+      },
+      // Volvemos a agrupar por usuario para reconstruir el arreglo de roles enriquecidos
+      {
+        "$group": {
+          "_id": "$_id",
+          "userData": { "$first": "$$ROOT" },
+          "enrichedRoles": { "$push": "$enrichedRole" }
+        }
+      },
+      {
+        "$addFields": {
+          // Dado que '$enrichedRoles' es un arreglo de arreglos (por cada unwind se crea un array con 1 elemento), 
+          // lo aplanamos:
+          "userData.ROLES": { "$reduce": {
+            "input": "$enrichedRoles",
+            "initialValue": [],
+            "in": { "$concatArrays": [ "$$value", "$$this" ] }
+          } }
+        }
+      },
+      {
+        "$replaceRoot": { "newRoot": "$userData" }
+      }
+    ];
 
-        return allUsers;
-    } catch (error) {
-        console.log("Error en getAllUsers:",error);
-        return { error: true, message: error.message };
-    }
+    const allUsers = await UsersSchema.aggregate(pipeline);
+    return allUsers;
+  } catch (error) {
+    console.log("Error en getAllUsers:", error);
+    return { error: true, message: error.message };
+  }
 }
 
+
 async function GetOneUser(userid) {
-    try {
-        //const userId = req.req.query?.userid;
-        //const user = await UsersSchema.findOne({USERID:userid}).lean();
-        const user = await usersComplete.findOne({USERID:userid}).lean();
-
-        if(!user){
-            return {mensaje:'No se encontró el usuario'};
+  try {
+    const pipeline = [
+      { "$match": { "USERID": userid } },
+      {
+        "$unwind": {
+          "path": "$ROLES",
+          "preserveNullAndEmptyArrays": true
         }
-
-        return user;
-    } catch (error) {
-        console.log("Error en getOneUser:",error);
-        return { error: true, message: error.message };
+      },
+      // Lookup en ZTEROLES para enriquecer cada rol a partir de su ROLEID
+      {
+        "$lookup": {
+          "from": "ZTEROLES",
+          "let": { "roleId": "$ROLES.ROLEID" },
+          "pipeline": [
+            {
+              "$match": {
+                "$expr": { "$eq": [ "$ROLEID", "$$roleId" ] }
+              }
+            },
+            { "$unwind": "$PRIVILEGES" },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "rawProcessId": "$PRIVILEGES.PROCESSID" },
+                "pipeline": [
+                  {
+                    "$addFields": {
+                      "cleanProcessId": {
+                        "$replaceOne": {
+                          "input": "$$rawProcessId",
+                          "find": "IdProcess-",
+                          "replacement": ""
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdProcesses" ] },
+                          { "$eq": [ "$VALUEID", "$cleanProcessId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "PROCESSID": "$VALUEID",
+                      "PROCESSNAME": "$VALUE",
+                      "VIEWID": "$VALUEPAID"
+                    }
+                  }
+                ],
+                "as": "processInfo"
+              }
+            },
+            { "$unwind": "$processInfo" },
+            {
+              "$addFields": {
+                "PROCESSNAME": "$processInfo.PROCESSNAME",
+                "VIEWID": "$processInfo.VIEWID"
+              }
+            },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "rawViewId": "$VIEWID" },
+                "pipeline": [
+                  {
+                    "$addFields": {
+                      "cleanViewId": {
+                        "$replaceOne": {
+                          "input": "$$rawViewId",
+                          "find": "IdViews-",
+                          "replacement": ""
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdViews" ] },
+                          { "$eq": [ "$VALUEID", "$cleanViewId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "VIEWNAME": "$VALUE",
+                      "APPLICATIONID": "$VALUEPAID"
+                    }
+                  }
+                ],
+                "as": "viewInfo"
+              }
+            },
+            {
+              "$unwind": {
+                "path": "$viewInfo",
+                "preserveNullAndEmptyArrays": true
+              }
+            },
+            {
+              "$addFields": {
+                "VIEWNAME": "$viewInfo.VIEWNAME",
+                "APPLICATIONID": "$viewInfo.APPLICATIONID"
+              }
+            },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "rawAppId": "$APPLICATIONID" },
+                "pipeline": [
+                  {
+                    "$addFields": {
+                      "cleanAppId": {
+                        "$replaceOne": {
+                          "input": "$$rawAppId",
+                          "find": "IdApplications-",
+                          "replacement": ""
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdApplications" ] },
+                          { "$eq": [ "$VALUEID", "$cleanAppId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "APPLICATIONNAME": "$VALUE"
+                    }
+                  }
+                ],
+                "as": "appInfo"
+              }
+            },
+            {
+              "$unwind": {
+                "path": "$appInfo",
+                "preserveNullAndEmptyArrays": true
+              }
+            },
+            {
+              "$addFields": {
+                "APPLICATIONNAME": "$appInfo.APPLICATIONNAME"
+              }
+            },
+            { "$unwind": "$PRIVILEGES.PRIVILEGEID" },
+            {
+              "$lookup": {
+                "from": "ZTEVALUES",
+                "let": { "privilegeId": "$PRIVILEGES.PRIVILEGEID" },
+                "pipeline": [
+                  {
+                    "$match": {
+                      "$expr": {
+                        "$and": [
+                          { "$eq": [ "$LABELID", "IdPrivileges" ] },
+                          { "$eq": [ "$VALUEID", "$$privilegeId" ] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "$project": {
+                      "_id": 0,
+                      "PRIVILEGENAME": "$VALUE"
+                    }
+                  }
+                ],
+                "as": "privInfo"
+              }
+            },
+            { "$unwind": "$privInfo" },
+            {
+              "$addFields": {
+                "PRIVILEGES.PRIVILEGENAME": "$privInfo.PRIVILEGENAME"
+              }
+            },
+            // Agrupar los resultados de este lookup para dejar la estructura enriquecida del rol
+            {
+              "$group": {
+                "_id": {
+                  "ROLEID": "$ROLEID",
+                  "ROLENAME": "$ROLENAME",
+                  "DESCRIPTION": "$DESCRIPTION",
+                  "PROCESSID": "$processInfo.VALUEID",
+                  "PROCESSNAME": "$PROCESSNAME",
+                  "VIEWID": "$viewInfo.VALUEID",
+                  "VIEWNAME": "$VIEWNAME",
+                  "APPLICATIONID": "$appInfo.VALUEID",
+                  "APPLICATIONNAME": "$APPLICATIONNAME"
+                },
+                "PRIVILEGES": {
+                  "$push": {
+                    "PRIVILEGEID": "$PRIVILEGES.PRIVILEGEID",
+                    "PRIVILEGENAME": "$PRIVILEGES.PRIVILEGENAME"
+                  }
+                }
+              }
+            },
+            {
+              "$project": {
+                "_id": 0,
+                "ROLEID": "$_id.ROLEID",
+                "ROLENAME": "$_id.ROLENAME",
+                "DESCRIPTION": "$_id.DESCRIPTION",
+                "PROCESSES": {
+                  "$arrayElemAt": [
+                    [{
+                      "PROCESSID": "$_id.PROCESSID",
+                      "PROCESSNAME": "$_id.PROCESSNAME",
+                      "VIEWID": "$_id.VIEWID",
+                      "VIEWNAME": "$_id.VIEWNAME",
+                      "APPLICATIONID": "$_id.APPLICATIONID",
+                      "APPLICATIONNAME": "$_id.APPLICATIONNAME",
+                      "PRIVILEGES": "$PRIVILEGES"
+                    }], 0
+                  ]
+                }
+              }
+            }
+          ],
+          "as": "enrichedRole"
+        }
+      },
+      // Volvemos a agrupar por usuario para reconstruir el arreglo de roles enriquecidos
+      {
+        "$group": {
+          "_id": "$_id",
+          "userData": { "$first": "$$ROOT" },
+          "enrichedRoles": { "$push": "$enrichedRole" }
+        }
+      },
+      {
+        "$addFields": {
+          // Dado que '$enrichedRoles' es un arreglo de arreglos (por cada unwind se crea un array con 1 elemento), 
+          // lo aplanamos:
+          "userData.ROLES": { "$reduce": {
+            "input": "$enrichedRoles",
+            "initialValue": [],
+            "in": { "$concatArrays": [ "$$value", "$$this" ] }
+          } }
+        }
+      },
+      {
+        "$replaceRoot": { "newRoot": "$userData" }
+      }
+    ];
+    
+    const result = await UsersSchema.aggregate(pipeline);
+    if (!result || result.length === 0) {
+      return { mensaje: 'No se encontró el usuario' };
     }
+    return result[0];
+  } catch (error) {
+    console.log("Error en getOneUser:", error);
+    return { error: true, message: error.message };
+  }
 }
 
 
