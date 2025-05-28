@@ -302,7 +302,7 @@ async function SimulateMomentum(req) {
         });
       }
 
-      // VENTA - basta con que se cumplan 3 de estas
+      // VENTA - basta con que se cumplan 3 de estas 
       const cruceBajista =
         anterior.SHORT > anterior.LONG && actual.SHORT < actual.LONG;
       const precioDebajoMAs = precio < actual.SHORT && precio < actual.LONG;
@@ -435,7 +435,6 @@ async function SimulateMomentum(req) {
     };
   }
 
-  //REVISAR SI ESTA BIEN ESTAS COSAS
   const resultadoSimulacion = simularEstrategiaTrading(
     indicadoresFiltrados,
     priceHistoryFiltrado
@@ -492,7 +491,7 @@ async function SimulateMomentum(req) {
     simulacion,
   };
 }
-
+//************************************************************** */
 async function simulateSupertrend(req) {
   console.log(req);
 
