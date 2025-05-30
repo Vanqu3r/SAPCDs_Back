@@ -146,10 +146,10 @@ type SUMMARY {
 // TIPO PARA LOS DATOS DEL GRÁFICO
 type CHARTDATA {
     DATE       : DateTime;           // FORMATO ISO 8601
-    OPEN       : Decimal(10, 2);
-    HIGH       : Decimal(10, 2);
-    LOW        : Decimal(10, 2);
-    CLOSE      : Decimal(10, 2);
+    OPEN       : Decimal(10, 3);
+    HIGH       : Decimal(10, 3);
+    LOW        : Decimal(10, 3);
+    CLOSE      : Decimal(10, 3);
     VOLUME     : Integer;
     INDICATORS : array of INDICATOR; // ARRAY DE INDICADORES
 }
@@ -175,3 +175,41 @@ type DETAILROWREG {
     REGUSER : String;
 }
 
+//esquema de portafolio 
+entity PORTFOLIO_RECORD {
+  key SIMULATIONID     : String;
+      INITIAL_CASH    : Decimal(15,2) default 10000.00;
+      CURRENT_CASH    : Decimal(15,2);
+      CURRENT_SHARES  : Integer;
+      TOTAL_BOUGHT_UNITS : Integer;
+      LAST_PRICE      : Decimal(15,2);
+      TOTAL_VALUE     : Decimal(15,2);
+      PERCENTAGE_RETURN : Decimal(5,2);
+}
+
+entity DETAIL_ROW_REG {
+      CURRENT       : Boolean;
+      REGDATE       : Date;
+      REGTIME       : Time;
+      REGUSER       : String;
+}
+
+entity DETAIL_ROW {
+      ACTIVED        : Boolean;
+      DELETED       : Boolean;
+      DETAIL_ROW_REG : Composition of many DETAIL_ROW_REG;
+}
+
+entity PORTAFOLIO {
+  key USERID       : String;
+      HISTORY      : Composition of many PORTFOLIO_RECORD;
+      DETAIL_ROW   : Composition of one DETAIL_ROW;
+}
+
+entity portafolioBody {
+  USERID: String;
+  SIMULATIONID: String;
+  SHARESFINISPS: Decimal(15,5);
+  CURRENTCASHPS: Decimal(15,5);
+  CHART_DATA: array of CHARTDATA;
+}

@@ -11,6 +11,7 @@ const {
   simulateSupertrend,
   reversionSimple,
   SimulateMACrossover,
+  guardarEstadoPortafolio
 } = require("../services/inv-simulation-service");
 
 class InversionsRoute extends cds.ApplicationService {
@@ -89,8 +90,12 @@ class InversionsRoute extends cds.ApplicationService {
         this.on('simulationCrud', async (req) => {
             return simulationCRUD(req);
         });
-
-
+        
+        //portafolio 
+        this.on('portafolio', async (req) => {
+            return guardarEstadoPortafolio(req);
+        });
+        
     //more functions
     return await super.init();
   }

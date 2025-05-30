@@ -1,4 +1,5 @@
 const SimulationModel = require("../models/mongodb/simulations");
+const PortfolioStatus = require('../models/mongodb/portafolio');
 const axios = require("axios");
 require("dotenv").config(); //para usar el .env despues
 const API_KEY = "7NONLRJ6ARKI0BA4";
@@ -351,7 +352,7 @@ async function SimulateMomentum(req) {
       const { DATE, TYPE, PRICE, REASONING } = señal;
 
       if (TYPE === "buy") {
-        const acciones = +(efectivo / PRICE).toFixed(6);
+        const acciones = Math.round(+(efectivo / PRICE));
         if (acciones > 0) {
           efectivo -= acciones * PRICE;
           lotes.push({
@@ -772,7 +773,7 @@ async function simulateSupertrend(req) {
       await nuevaSimulacion.save();
       console.log("Simulacion guardada en la base de datos.");
       //console.log(nuevaSimulacion);
-      return {simulacion}
+      return { simulacion }
     } catch (error) {
       return {
         status: 500,
@@ -1106,7 +1107,7 @@ async function reversionSimple(req) {
       STRATEGYID,
       SIMULATIONNAME,
       SYMBOL,
-      INDICATORS:  SPECS ,
+      INDICATORS: SPECS,
       AMOUNT: AMOUNT,
       STARTDATE,
       ENDDATE,
@@ -1208,16 +1209,16 @@ function calculateMovingAverageData(
         short_ma:
           shortSlice.length >= shortMa
             ? shortSlice.reduce(
-                (sum, p) => (p && p.close ? sum + p.close : sum),
-                0
-              ) / shortMa
+              (sum, p) => (p && p.close ? sum + p.close : sum),
+              0
+            ) / shortMa
             : null,
         long_ma:
           longSlice.length >= longMa
             ? longSlice.reduce(
-                (sum, p) => (p && p.close ? sum + p.close : sum),
-                0
-              ) / longMa
+              (sum, p) => (p && p.close ? sum + p.close : sum),
+              0
+            ) / longMa
             : null,
       };
     })
@@ -1592,9 +1593,158 @@ async function SimulateMACrossover(body) {
   }
 }
 
+//**********************PORTAFOLIO**************************/
+//
+async function registerBaseSimulation(userId, cash) {
+  const now = new Date();
+
+  const baseDetail = {
+    CURRENT: true,
+    REGDATE: now.toISOString().slice(0, 10),
+    REGTIME: now.toTimeString().slice(0, 8),
+    REGUSER: userId
+  };
+
+  const baseSim = {
+    SIMULATIONID: 'SIM-0',
+    INITIAL_CASH: cash,
+    CURRENT_CASH: cash,
+    CURRENT_SHARES: 0,
+    TOTAL_BOUGHT_UNITS: 0,
+    LAST_PRICE: 0,
+    TOTAL_VALUE: cash,
+    PERCENTAGE_RETURN: 0,
+    LAST_UPDATED: now,
+
+  };
+
+  let portfolio = await PortfolioStatus.findOne({ USERID: userId });
+
+  if (!portfolio) {
+    portfolio = await PortfolioStatus.create({
+      USERID: userId,
+      HISTORY: [baseSim],
+      DETAIL_ROW: {
+        ACTIVED: true,
+        DELETED: false,
+        DETAIL_ROW_REG: [baseDetail]
+      }
+    });
+    return { status: 201, message: 'Portafolio creado con simulación base', data: portfolio.HISTORY[portfolio.HISTORY.length - 1] };
+  } else {
+    const exists = portfolio.HISTORY.some(h => h.SIMULATIONID === 'SIM-0');
+    if (!exists) {
+      portfolio.HISTORY.push(baseSim);
+      await portfolio.save();
+      console.log(portfolio);
+      console.log(portfolio.HISTORY[portfolio.HISTORY.length - 1]);
+      return { status: 201, message: 'Simulación base agregada al portafolio', data: portfolio.HISTORY[portfolio.HISTORY.length - 1] };
+    } else {
+      console.log(portfolio.HISTORY[portfolio.HISTORY.length - 1]);
+      return { status: 409, message: 'La simulación base ya existe', data: portfolio.HISTORY[portfolio.HISTORY.length - 1] };
+
+    }
+  }
+}
+
+async function CashIni(userId) {
+
+  return await PortfolioStatus.findOne({ USERID: userId }).then(portfolio => {
+    let initialCash;
+    if (!portfolio?.HISTORY?.length) {
+      initialCash = 10000;
+    } else {
+      initialCash = portfolio.HISTORY[portfolio.HISTORY.length - 1].CURRENT_CASH;
+    }
+    return parseInt(initialCash);
+  });
+
+
+}
+
+//ESTADO DEL PORTAFOLIO
+async function guardarEstadoPortafolio(req) {
+
+  const {
+    USERID,
+    SIMULATIONID,
+    SHARESFINISPS, // Valor por defecto
+    CURRENTCASHPS,
+    CHART_DATA // Array vacío por defecto
+  } = req?.data?.RESUMENSIMU;
+  //SHARESFINISPS -> acciones restantes de la simulacion actual
+  //CURRENTCASHPS -> efectivo restante  de la simulacion actual
+  const lastPrice = CHART_DATA[CHART_DATA.length - 1].CLOSE;
+  const cashIni = await CashIni(USERID);
+  const CreacionBase = await registerBaseSimulation(USERID, cashIni);
+
+  const accionesFinales = SHARESFINISPS + parseFloat(CreacionBase.data.TOTAL_BOUGHT_UNITS);
+  //efectivo de la simulacion pasada + efectivo de la simulacion actual + acciones finales * precio de cierre
+  const totalValue = cashIni + CURRENTCASHPS + (accionesFinales * lastPrice);
+  const percentageReturn = (((totalValue - cashIni) / cashIni) * 100).toFixed(3);
+  const now = new Date();
+
+  const newDetail = {
+    CURRENT: true,
+    REGDATE: now.toISOString().slice(0, 10),
+    REGTIME: now.toTimeString().slice(0, 8),
+    REGUSER: USERID
+  };
+
+  const newHistoryItem = {
+    SIMULATIONID: SIMULATIONID,
+    INITIAL_CASH: cashIni,
+    CURRENT_CASH: CURRENTCASHPS,
+    CURRENT_SHARES: SHARESFINISPS,
+    TOTAL_BOUGHT_UNITS: accionesFinales,
+    LAST_PRICE: lastPrice,
+    TOTAL_VALUE: totalValue,
+    PERCENTAGE_RETURN: percentageReturn,
+
+  };
+
+  const portfolio = await PortfolioStatus.findOne({ USERID: USERID });
+  if (!portfolio) {
+    await PortfolioStatus.create({
+      USERID: USERID, HISTORY: [newHistoryItem], DETAIL_ROW: {
+        ACTIVED: true,
+        DELETED: false,
+        DETAIL_ROW_REG: [newDetail]
+      }
+    });
+
+  } else {
+    portfolio.HISTORY.push(newHistoryItem);
+    // Asegurar estructura de DETAIL_ROW
+    if (!portfolio.DETAIL_ROW) {
+      portfolio.DETAIL_ROW = {
+        ACTIVED: true,
+        DELETED: false,
+        DETAIL_ROW_REG: []
+      };
+    }
+
+    // Marcar registros actuales como no actuales
+    if (Array.isArray(portfolio.DETAIL_ROW.DETAIL_ROW_REG)) {
+      portfolio.DETAIL_ROW.DETAIL_ROW_REG.forEach(reg => reg.CURRENT = false);
+    } else {
+      portfolio.DETAIL_ROW.DETAIL_ROW_REG = [];
+    }
+
+    // Agregar nuevo registro de auditoría
+    portfolio.DETAIL_ROW.DETAIL_ROW_REG.push(newDetail);
+    await portfolio.save();
+  }
+
+  return portfolio.toObject();
+}
+
+
+
 module.exports = {
   SimulateMomentum,
   simulateSupertrend,
   reversionSimple,
   SimulateMACrossover,
+  guardarEstadoPortafolio
 };
