@@ -9,12 +9,13 @@ const PortafolioRecordSchema = new mongoose.Schema({
   LAST_PRICE: { type: Number, required: true },
   TOTAL_VALUE: { type: Number, required: true },
   PERCENTAGE_RETURN: { type: Number, required: true },
-  SIMULATION_DATE:  {type: Date, required:true, default: new Date()}
+ // SIMULATION_DATE:  {type: Date, required:true, default: new Date().toISOString().split(0,10) },
+
 });
 
 const DETAIL_ROW_REG_SCHEMA = new mongoose.Schema({
   CURRENT: Boolean,
-  REGDATE: Date,
+ // REGDATE: Date,
   REGTIME: String,
   REGUSER: String
 }, { _id: false });

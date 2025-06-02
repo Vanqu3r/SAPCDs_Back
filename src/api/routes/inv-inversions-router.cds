@@ -43,6 +43,10 @@ service InversionsRoute @(path: '/api/inv') {
   action   portafolio(RESUMENSIMU:PB)                                     
   returns array of Portafolio;
 
+  @Core.Description: 'History'
+  //@path            : 'history'
+  action   history()                                     
+  returns array of Portafolio;
 
   @Core.Description: 'simulationsCRUD'
   @path            : 'simulationCrud'

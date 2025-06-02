@@ -1596,11 +1596,11 @@ async function SimulateMACrossover(body) {
 //**********************PORTAFOLIO**************************/
 //
 async function registerBaseSimulation(userId, cash) {
-  const now = new Date();
+  const now = new Date().isoString().slice(0, 10);
 
   const baseDetail = {
     CURRENT: true,
-    REGDATE: now.toISOString().slice(0, 10),
+    //REGDATE: now.toISOString().slice(0, 10),
     REGTIME: now.toTimeString().slice(0, 8),
     REGUSER: userId
   };
@@ -1614,7 +1614,7 @@ async function registerBaseSimulation(userId, cash) {
     LAST_PRICE: 0,
     TOTAL_VALUE: cash,
     PERCENTAGE_RETURN: 0,
-    LAST_UPDATED: now,
+   // SIMULATION_DATE: now,
 
   };
 
@@ -1682,11 +1682,11 @@ async function guardarEstadoPortafolio(req) {
   //efectivo de la simulacion pasada + efectivo de la simulacion actual + acciones finales * precio de cierre
   const totalValue = cashIni + CURRENTCASHPS + (accionesFinales * lastPrice);
   const percentageReturn = (((totalValue - cashIni) / cashIni) * 100).toFixed(3);
-  const now = new Date();
+  const now = new Date().isoString().slice(0, 10);
 
   const newDetail = {
     CURRENT: true,
-    REGDATE: now.toISOString().slice(0, 10),
+   // REGDATE: now.toISOString().slice(0, 10),
     REGTIME: now.toTimeString().slice(0, 8),
     REGUSER: USERID
   };
@@ -1700,6 +1700,8 @@ async function guardarEstadoPortafolio(req) {
     LAST_PRICE: lastPrice,
     TOTAL_VALUE: totalValue,
     PERCENTAGE_RETURN: percentageReturn,
+   // SIMULATION_DATE: now,
+
 
   };
 

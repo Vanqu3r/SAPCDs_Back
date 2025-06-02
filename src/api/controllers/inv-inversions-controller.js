@@ -5,7 +5,7 @@ const { getIndicadors } = require("../services/inv-indicadors-service");
 const { getAllSymbols } = require("../services/inv-symbols-service");
 
 const { StrategyCrud } = require("../services/inv-strategy-service");
-const { simulationCRUD } = require("../services/inv-CrudSimulation")
+const { simulationCRUD , History} = require("../services/inv-CrudSimulation")
 const {
   SimulateMomentum,
   simulateSupertrend,
@@ -94,6 +94,9 @@ class InversionsRoute extends cds.ApplicationService {
         //portafolio 
         this.on('portafolio', async (req) => {
             return guardarEstadoPortafolio(req);
+        });
+        this.on('history', async (req) => {
+            return History(req);
         });
         
     //more functions

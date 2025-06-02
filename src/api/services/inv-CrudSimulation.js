@@ -1,4 +1,6 @@
 const simulationModel = require('../models/mongodb/simulations');
+const Portafolio = require("../models/mongodb/portafolio");
+const portafolio = require('../models/mongodb/portafolio');
 
 async function simulationCRUD(req) {
     if (!req || !req.req) {
@@ -202,8 +204,30 @@ async function simulationCRUD(req) {
     }
 }
 
+async function History(req) {
+    if (!req || !req.req) {
+        return { status: 400, error: 'Request inválida' };
+    }
+
+    const { query } = req.req;
+    const id = query?.userId
+    
+    try {
+        
+        const results = await portafolio.find({ USERID: id }).lean();        
+                if (!results || results.length === 0) {
+                    return { status: 404, message: 'No se encontraron simulaciones para este usuario' };
+                }
+                return results;
+    } catch (error) {
+        return { status: 500, error: 'Error interno del servidor', details: error.message };
+    }
+
+}
+
 
 
 module.exports = {
-    simulationCRUD
+    simulationCRUD,
+    History
 };
